@@ -181,7 +181,7 @@ local function createSidebar(frame: Frame)
     sidebar.BorderSizePixel = 0
     sidebar.Position = UDim2.fromOffset(0, TITLE_BAR_HEIGHT)
     sidebar.Size = UDim2.new(0, DEFAULTS.SidebarWidth, 1, -TITLE_BAR_HEIGHT)
-    sidebar.ZIndex = frame.ZIndex + 1
+    sidebar.ZIndex = frame.ZIndex
     sidebar:SetAttribute("SlateComponent", "Sidebar")
     sidebar.Parent = frame
 
