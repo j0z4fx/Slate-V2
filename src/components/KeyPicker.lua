@@ -6,6 +6,7 @@ local KeyPickerMeta = {}
 
 local BUTTON_HEIGHT = 18
 local BUTTON_MIN_WIDTH = 42
+local CORNER_RADIUS = 4
 
 local LIVE_PROPERTIES = {
     Mode = true,
@@ -48,6 +49,18 @@ local function inputToKeyName(input)
     return nil
 end
 
+local function formatKeyName(value)
+    local key = normalizeKey(value)
+    if key == "None" then
+        return key
+    end
+
+    key = key:gsub("(%l)(%u)", "%1 %2")
+    key = key:gsub("Button(%d)", "Button %1")
+
+    return key
+end
+
 local function createKeyPicker(parent)
     local button = Instance.new("TextButton")
     button.Name = "KeyPicker"
@@ -60,8 +73,20 @@ local function createKeyPicker(parent)
     button.Parent = parent
 
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1, 0)
+    corner.CornerRadius = UDim.new(0, CORNER_RADIUS)
     corner.Parent = button
+
+    local overlay = Instance.new("Frame")
+    overlay.Name = "Overlay"
+    overlay.BackgroundColor3 = Theme.accent
+    overlay.BackgroundTransparency = 1
+    overlay.BorderSizePixel = 0
+    overlay.Size = UDim2.fromScale(1, 1)
+    overlay.Parent = button
+
+    local overlayCorner = Instance.new("UICorner")
+    overlayCorner.CornerRadius = UDim.new(0, CORNER_RADIUS)
+    overlayCorner.Parent = overlay
 
     local stroke = Instance.new("UIStroke")
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -90,6 +115,7 @@ local function createKeyPicker(parent)
     return {
         button = button,
         label = label,
+        overlay = overlay,
         stroke = stroke,
     }
 end
@@ -100,8 +126,10 @@ end
 
 local function applyMetadata(self)
     local refs = self._refs
-    refs.label.Text = self._picking and "..." or self._state.Value
+    refs.label.Text = self._picking and "..." or formatKeyName(self._state.Value)
     refs.stroke.Color = self._picking and Theme.accent or Theme["toggle-stroke"]
+    refs.stroke.Transparency = 0
+    refs.overlay.BackgroundTransparency = self._picking and 0.84 or 1
 end
 
 local function syncParentToggle(self, state)

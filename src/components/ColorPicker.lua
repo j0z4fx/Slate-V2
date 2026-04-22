@@ -1,15 +1,14 @@
 local Theme = require(script.Parent.Parent.theme.Theme)
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local ColorPicker = {}
 local ColorPickerMeta = {}
 
 local BUTTON_SIZE = 18
-local MENU_SIZE = Vector2.new(188, 176)
+local MENU_SIZE = Vector2.new(188, 184)
 local CURSOR_SIZE = 10
 local HUE_WIDTH = 14
-local PICKER_TWEEN = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local MENU_MARGIN = 10
 
 local LIVE_PROPERTIES = {
     Title = true,
@@ -45,6 +44,20 @@ local function normalizePropertyValue(property, value)
     return value
 end
 
+local function findWindowRoot(instance)
+    local current = instance
+
+    while current do
+        if current:GetAttribute and current:GetAttribute("SlateComponent") == "Window" then
+            return current
+        end
+
+        current = current.Parent
+    end
+
+    return nil
+end
+
 local function createMenu(parent)
     local button = Instance.new("TextButton")
     button.Name = "ColorPickerButton"
@@ -65,16 +78,17 @@ local function createMenu(parent)
     buttonStroke.Thickness = 1
     buttonStroke.Parent = button
 
-    local screenGui = parent:FindFirstAncestorOfClass("ScreenGui")
+    local windowRoot = findWindowRoot(parent)
 
     local menu = Instance.new("Frame")
     menu.Name = "ColorPickerMenu"
     menu.BackgroundColor3 = Theme.surface
     menu.BorderSizePixel = 0
+    menu.ClipsDescendants = true
     menu.Size = UDim2.fromOffset(MENU_SIZE.X, MENU_SIZE.Y)
     menu.Visible = false
-    menu.ZIndex = 200
-    menu.Parent = screenGui or parent
+    menu.ZIndex = 150
+    menu.Parent = windowRoot or parent
 
     local menuCorner = Instance.new("UICorner")
     menuCorner.CornerRadius = UDim.new(0, 6)
@@ -106,14 +120,23 @@ local function createMenu(parent)
     title.ZIndex = 201
     title.Parent = menu
 
+    local pickerBody = Instance.new("Frame")
+    pickerBody.Name = "PickerBody"
+    pickerBody.BackgroundTransparency = 1
+    pickerBody.BorderSizePixel = 0
+    pickerBody.Position = UDim2.fromOffset(0, 24)
+    pickerBody.Size = UDim2.fromOffset(150, 120)
+    pickerBody.ZIndex = 201
+    pickerBody.Parent = menu
+
     local picker = Instance.new("Frame")
     picker.Name = "Picker"
     picker.BackgroundColor3 = Color3.new(1, 0, 0)
     picker.BorderSizePixel = 0
-    picker.Position = UDim2.fromOffset(0, 24)
-    picker.Size = UDim2.fromOffset(150, 120)
+    picker.ClipsDescendants = true
+    picker.Size = UDim2.fromScale(1, 1)
     picker.ZIndex = 201
-    picker.Parent = menu
+    picker.Parent = pickerBody
 
     local pickerCorner = Instance.new("UICorner")
     pickerCorner.CornerRadius = UDim.new(0, 4)
@@ -209,7 +232,7 @@ local function createMenu(parent)
     preview.Name = "Preview"
     preview.BackgroundColor3 = Theme.accent
     preview.BorderSizePixel = 0
-    preview.Position = UDim2.fromOffset(0, 152)
+    preview.Position = UDim2.fromOffset(0, 156)
     preview.Size = UDim2.new(1, 0, 0, 16)
     preview.ZIndex = 201
     preview.Parent = menu
@@ -224,10 +247,12 @@ local function createMenu(parent)
         hue = hue,
         hueCursor = hueCursor,
         menu = menu,
+        pickerBody = pickerBody,
         picker = picker,
         pickerCursor = pickerCursor,
         preview = preview,
         title = title,
+        windowRoot = windowRoot,
     }
 end
 
@@ -237,13 +262,22 @@ end
 
 local function positionMenu(self)
     local refs = self._refs
-    local screenGui = refs.menu.Parent
     local absolutePosition = self.Instance.AbsolutePosition
+    local buttonSize = self.Instance.AbsoluteSize
+    local windowRoot = refs.windowRoot
 
-    if screenGui and screenGui:IsA("ScreenGui") then
+    if windowRoot then
+        local rootPosition = windowRoot.AbsolutePosition
+        local rootSize = windowRoot.AbsoluteSize
+        local targetX = absolutePosition.X - rootPosition.X + buttonSize.X + 8
+        local targetY = absolutePosition.Y - rootPosition.Y
+
+        targetX = math.clamp(targetX, MENU_MARGIN, math.max(MENU_MARGIN, rootSize.X - refs.menu.AbsoluteSize.X - MENU_MARGIN))
+        targetY = math.clamp(targetY, MENU_MARGIN, math.max(MENU_MARGIN, rootSize.Y - refs.menu.AbsoluteSize.Y - MENU_MARGIN))
+
         refs.menu.Position = UDim2.fromOffset(
-            absolutePosition.X + self.Instance.AbsoluteSize.X + 8,
-            absolutePosition.Y
+            targetX,
+            targetY
         )
     end
 end
@@ -361,11 +395,11 @@ function ColorPicker.new(toggle, config)
     end))
 
     table.insert(self._connections, UserInputService.InputBegan:Connect(function(input, processed)
-        if not self._open or processed then
+        if not self._open then
             return
         end
 
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
             return
         end
 

@@ -142,17 +142,16 @@ function Lucide.GetAsset(name)
     return nil
 end
 
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local ColorPicker = {}
 local ColorPickerMeta = {}
 
 local BUTTON_SIZE = 18
-local MENU_SIZE = Vector2.new(188, 176)
+local MENU_SIZE = Vector2.new(188, 184)
 local CURSOR_SIZE = 10
 local HUE_WIDTH = 14
-local PICKER_TWEEN = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local MENU_MARGIN = 10
 
 local LIVE_PROPERTIES = {
     Title = true,
@@ -188,6 +187,20 @@ local function normalizePropertyValue(property, value)
     return value
 end
 
+local function findWindowRoot(instance)
+    local current = instance
+
+    while current do
+        if current:GetAttribute and current:GetAttribute("SlateComponent") == "Window" then
+            return current
+        end
+
+        current = current.Parent
+    end
+
+    return nil
+end
+
 local function createMenu(parent)
     local button = Instance.new("TextButton")
     button.Name = "ColorPickerButton"
@@ -208,16 +221,17 @@ local function createMenu(parent)
     buttonStroke.Thickness = 1
     buttonStroke.Parent = button
 
-    local screenGui = parent:FindFirstAncestorOfClass("ScreenGui")
+    local windowRoot = findWindowRoot(parent)
 
     local menu = Instance.new("Frame")
     menu.Name = "ColorPickerMenu"
     menu.BackgroundColor3 = Theme.surface
     menu.BorderSizePixel = 0
+    menu.ClipsDescendants = true
     menu.Size = UDim2.fromOffset(MENU_SIZE.X, MENU_SIZE.Y)
     menu.Visible = false
-    menu.ZIndex = 200
-    menu.Parent = screenGui or parent
+    menu.ZIndex = 150
+    menu.Parent = windowRoot or parent
 
     local menuCorner = Instance.new("UICorner")
     menuCorner.CornerRadius = UDim.new(0, 6)
@@ -249,14 +263,23 @@ local function createMenu(parent)
     title.ZIndex = 201
     title.Parent = menu
 
+    local pickerBody = Instance.new("Frame")
+    pickerBody.Name = "PickerBody"
+    pickerBody.BackgroundTransparency = 1
+    pickerBody.BorderSizePixel = 0
+    pickerBody.Position = UDim2.fromOffset(0, 24)
+    pickerBody.Size = UDim2.fromOffset(150, 120)
+    pickerBody.ZIndex = 201
+    pickerBody.Parent = menu
+
     local picker = Instance.new("Frame")
     picker.Name = "Picker"
     picker.BackgroundColor3 = Color3.new(1, 0, 0)
     picker.BorderSizePixel = 0
-    picker.Position = UDim2.fromOffset(0, 24)
-    picker.Size = UDim2.fromOffset(150, 120)
+    picker.ClipsDescendants = true
+    picker.Size = UDim2.fromScale(1, 1)
     picker.ZIndex = 201
-    picker.Parent = menu
+    picker.Parent = pickerBody
 
     local pickerCorner = Instance.new("UICorner")
     pickerCorner.CornerRadius = UDim.new(0, 4)
@@ -352,7 +375,7 @@ local function createMenu(parent)
     preview.Name = "Preview"
     preview.BackgroundColor3 = Theme.accent
     preview.BorderSizePixel = 0
-    preview.Position = UDim2.fromOffset(0, 152)
+    preview.Position = UDim2.fromOffset(0, 156)
     preview.Size = UDim2.new(1, 0, 0, 16)
     preview.ZIndex = 201
     preview.Parent = menu
@@ -367,10 +390,12 @@ local function createMenu(parent)
         hue = hue,
         hueCursor = hueCursor,
         menu = menu,
+        pickerBody = pickerBody,
         picker = picker,
         pickerCursor = pickerCursor,
         preview = preview,
         title = title,
+        windowRoot = windowRoot,
     }
 end
 
@@ -380,13 +405,22 @@ end
 
 local function positionMenu(self)
     local refs = self._refs
-    local screenGui = refs.menu.Parent
     local absolutePosition = self.Instance.AbsolutePosition
+    local buttonSize = self.Instance.AbsoluteSize
+    local windowRoot = refs.windowRoot
 
-    if screenGui and screenGui:IsA("ScreenGui") then
+    if windowRoot then
+        local rootPosition = windowRoot.AbsolutePosition
+        local rootSize = windowRoot.AbsoluteSize
+        local targetX = absolutePosition.X - rootPosition.X + buttonSize.X + 8
+        local targetY = absolutePosition.Y - rootPosition.Y
+
+        targetX = math.clamp(targetX, MENU_MARGIN, math.max(MENU_MARGIN, rootSize.X - refs.menu.AbsoluteSize.X - MENU_MARGIN))
+        targetY = math.clamp(targetY, MENU_MARGIN, math.max(MENU_MARGIN, rootSize.Y - refs.menu.AbsoluteSize.Y - MENU_MARGIN))
+
         refs.menu.Position = UDim2.fromOffset(
-            absolutePosition.X + self.Instance.AbsoluteSize.X + 8,
-            absolutePosition.Y
+            targetX,
+            targetY
         )
     end
 end
@@ -504,11 +538,11 @@ function ColorPicker.new(toggle, config)
     end))
 
     table.insert(self._connections, UserInputService.InputBegan:Connect(function(input, processed)
-        if not self._open or processed then
+        if not self._open then
             return
         end
 
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
             return
         end
 
@@ -684,6 +718,7 @@ local KeyPickerMeta = {}
 
 local BUTTON_HEIGHT = 18
 local BUTTON_MIN_WIDTH = 42
+local CORNER_RADIUS = 4
 
 local LIVE_PROPERTIES = {
     Mode = true,
@@ -726,6 +761,18 @@ local function inputToKeyName(input)
     return nil
 end
 
+local function formatKeyName(value)
+    local key = normalizeKey(value)
+    if key == "None" then
+        return key
+    end
+
+    key = key:gsub("(%l)(%u)", "%1 %2")
+    key = key:gsub("Button(%d)", "Button %1")
+
+    return key
+end
+
 local function createKeyPicker(parent)
     local button = Instance.new("TextButton")
     button.Name = "KeyPicker"
@@ -738,8 +785,20 @@ local function createKeyPicker(parent)
     button.Parent = parent
 
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1, 0)
+    corner.CornerRadius = UDim.new(0, CORNER_RADIUS)
     corner.Parent = button
+
+    local overlay = Instance.new("Frame")
+    overlay.Name = "Overlay"
+    overlay.BackgroundColor3 = Theme.accent
+    overlay.BackgroundTransparency = 1
+    overlay.BorderSizePixel = 0
+    overlay.Size = UDim2.fromScale(1, 1)
+    overlay.Parent = button
+
+    local overlayCorner = Instance.new("UICorner")
+    overlayCorner.CornerRadius = UDim.new(0, CORNER_RADIUS)
+    overlayCorner.Parent = overlay
 
     local stroke = Instance.new("UIStroke")
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -768,6 +827,7 @@ local function createKeyPicker(parent)
     return {
         button = button,
         label = label,
+        overlay = overlay,
         stroke = stroke,
     }
 end
@@ -778,8 +838,10 @@ end
 
 local function applyMetadata(self)
     local refs = self._refs
-    refs.label.Text = self._picking and "..." or self._state.Value
+    refs.label.Text = self._picking and "..." or formatKeyName(self._state.Value)
     refs.stroke.Color = self._picking and Theme.accent or Theme["toggle-stroke"]
+    refs.stroke.Transparency = 0
+    refs.overlay.BackgroundTransparency = self._picking and 0.84 or 1
 end
 
 local function syncParentToggle(self, state)
@@ -2345,6 +2407,7 @@ local TITLE_BAR_STROKE = 1
 local SIDEBAR_STROKE = 1
 local CURSOR_SIZE = 16
 local CURSOR_LINE_THICKNESS = 2
+local CURSOR_ZINDEX = 1000
 local DEFAULT_SIDEBAR_WIDTH = math.floor((48 * 1.15) + 0.5)
 local COLUMN_GAP = 8
 local COLUMN_OFFSET = -math.floor(2 * COLUMN_GAP / 3)
@@ -2463,7 +2526,7 @@ local function createCursor(frame: Frame)
     cursor.BorderSizePixel = 0
     cursor.Size = UDim2.fromOffset(CURSOR_SIZE, CURSOR_SIZE)
     cursor.Visible = false
-    cursor.ZIndex = frame.ZIndex + 10
+    cursor.ZIndex = CURSOR_ZINDEX
     cursor:SetAttribute("SlateComponent", "Cursor")
     cursor.Parent = frame
 

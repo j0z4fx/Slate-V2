@@ -17,6 +17,7 @@ local TITLE_BAR_STROKE = 1
 local SIDEBAR_STROKE = 1
 local CURSOR_SIZE = 16
 local CURSOR_LINE_THICKNESS = 2
+local CURSOR_ZINDEX = 1000
 local DEFAULT_SIDEBAR_WIDTH = math.floor((48 * 1.15) + 0.5)
 local COLUMN_GAP = 8
 local COLUMN_OFFSET = -math.floor(2 * COLUMN_GAP / 3)
@@ -135,7 +136,7 @@ local function createCursor(frame: Frame)
     cursor.BorderSizePixel = 0
     cursor.Size = UDim2.fromOffset(CURSOR_SIZE, CURSOR_SIZE)
     cursor.Visible = false
-    cursor.ZIndex = frame.ZIndex + 10
+    cursor.ZIndex = CURSOR_ZINDEX
     cursor:SetAttribute("SlateComponent", "Cursor")
     cursor.Parent = frame
 
