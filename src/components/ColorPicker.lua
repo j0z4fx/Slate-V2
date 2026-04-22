@@ -44,6 +44,10 @@ local function normalizePropertyValue(property, value)
     return value
 end
 
+local function setInternal(self, key, value)
+    rawset(self, key, value)
+end
+
 local function findWindowRoot(instance)
     local current = instance
 
@@ -330,7 +334,7 @@ function ColorPicker.new(toggle, config)
         Parent = toggle,
         _connections = {},
         _destroyed = false,
-        _dragTarget = nil,
+        _dragTarget = false,
         _onChanged = cfg.Changed or cfg.Callback,
         _open = false,
         _refs = refs,
@@ -353,7 +357,7 @@ function ColorPicker.new(toggle, config)
             return
         end
 
-        self._dragTarget = "picker"
+        setInternal(self, "_dragTarget", "picker")
         local pos = input.Position
         local abs = refs.picker.AbsolutePosition
         local size = refs.picker.AbsoluteSize
@@ -365,7 +369,7 @@ function ColorPicker.new(toggle, config)
             return
         end
 
-        self._dragTarget = "hue"
+        setInternal(self, "_dragTarget", "hue")
         local pos = input.Position
         local abs = refs.hue.AbsolutePosition
         local size = refs.hue.AbsoluteSize
@@ -390,7 +394,7 @@ function ColorPicker.new(toggle, config)
 
     table.insert(self._connections, UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            self._dragTarget = nil
+            setInternal(self, "_dragTarget", false)
         end
     end))
 
