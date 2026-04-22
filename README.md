@@ -9,7 +9,15 @@ local Slate = loadstring(game:HttpGet("https://raw.githubusercontent.com/j0z4fx/
 
 Current API:
 ```lua
-local window = Slate.CreateWindow()
+local window = Slate:CreateWindow({
+    Height = 540,
+    Width = 960,
+    Title = "Slate",
+    Resizable = true,
+    SidebarWidth = 220,
+    ShowSidebar = true,
+    AutoShow = true,
+})
 ```
 
 Harness:

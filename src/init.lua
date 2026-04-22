@@ -6,10 +6,23 @@ local Slate = {}
 
 Slate.Theme = Theme
 
-function Slate.CreateWindow(parent: Instance?)
-    local target = parent or Root.getOrCreate()
+local function normalizeWindowConfig(selfOrConfig, config)
+    if selfOrConfig == Slate then
+        return config or {}
+    end
 
-    return Window.new(target)
+    if type(selfOrConfig) == "table" then
+        return selfOrConfig
+    end
+
+    return {}
+end
+
+function Slate:CreateWindow(config)
+    local windowConfig = normalizeWindowConfig(self, config)
+    local target = windowConfig.Parent or Root.getOrCreate()
+
+    return Window.new(target, windowConfig)
 end
 
 return Slate

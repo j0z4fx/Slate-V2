@@ -32,7 +32,9 @@ function Harness.mount(api, parent: Instance)
     screenGui.IgnoreGuiInset = true
     screenGui.Parent = parent
 
-    local window = api.CreateWindow(screenGui)
+    local window = api:CreateWindow({
+        Parent = screenGui,
+    })
 
     Harness._session = {
         api = api,
@@ -55,16 +57,21 @@ function Harness.snapshotState()
 
     return {
         screenGuiName = session.screenGui.Name,
-        windowName = session.window.Name,
+        windowName = session.window.Instance.Name,
+        title = session.window.Title,
+        visible = session.window.Visible,
         absolutePosition = {
-            x = session.window.AbsolutePosition.X,
-            y = session.window.AbsolutePosition.Y,
+            x = session.window.Instance.AbsolutePosition.X,
+            y = session.window.Instance.AbsolutePosition.Y,
         },
         absoluteSize = {
-            x = session.window.AbsoluteSize.X,
-            y = session.window.AbsoluteSize.Y,
+            x = session.window.Instance.AbsoluteSize.X,
+            y = session.window.Instance.AbsoluteSize.Y,
         },
-        background = readColor(session.window.BackgroundColor3),
+        background = readColor(session.window.Instance.BackgroundColor3),
+        sidebarWidth = session.window.SidebarWidth,
+        resizable = session.window.Resizable,
+        showSidebar = session.window.ShowSidebar,
     }
 end
 
