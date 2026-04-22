@@ -4,7 +4,7 @@ local Groupbox = {}
 local GroupboxMeta = {}
 
 local TITLE_HEIGHT = 26
-local TITLE_FONT_SIZE = 11
+local TITLE_FONT_SIZE = 22
 local TITLE_COLOR = Color3.fromRGB(94, 94, 126)
 local CORNER_RADIUS = 6
 local STROKE_THICKNESS = 1
@@ -79,13 +79,12 @@ local function createGroupbox(parent)
 
     local separator = Instance.new("Frame")
     separator.Name = "Separator"
-    separator.AnchorPoint = Vector2.new(0, 1)
     separator.BackgroundColor3 = Theme["surface-stroke"]
     separator.BorderSizePixel = 0
-    separator.Position = UDim2.new(0, 0, 1, 0)
+    separator.LayoutOrder = 2
     separator.Size = UDim2.new(1, 0, 0, 1)
-    separator.ZIndex = titleBar.ZIndex
-    separator.Parent = titleBar
+    separator.ZIndex = frame.ZIndex + 1
+    separator.Parent = frame
 
     -- Content area
     local content = Instance.new("Frame")
@@ -93,7 +92,7 @@ local function createGroupbox(parent)
     content.AutomaticSize = Enum.AutomaticSize.Y
     content.BackgroundTransparency = 1
     content.BorderSizePixel = 0
-    content.LayoutOrder = 2
+    content.LayoutOrder = 3
     content.Size = UDim2.new(1, 0, 0, 0)
     content.ZIndex = frame.ZIndex + 1
     content.Parent = frame
