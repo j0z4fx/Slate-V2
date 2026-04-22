@@ -4,8 +4,8 @@ local Window = {}
 local WindowMeta = {}
 local CHIP_TEXT = "SLATE"
 local TITLE_BAR_HEIGHT = 36
-local TITLE_BAR_STROKE = 4
-local SIDEBAR_STROKE = 4
+local TITLE_BAR_STROKE = 1
+local SIDEBAR_STROKE = 1
 
 local DEFAULTS = {
     Title = "Slate",

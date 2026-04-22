@@ -10,8 +10,8 @@ local ROOT_NAME = "Slate"
 local ROOT_ATTRIBUTE = "SlateOwned"
 local CHIP_TEXT = "SLATE"
 local TITLE_BAR_HEIGHT = 36
-local TITLE_BAR_STROKE = 4
-local SIDEBAR_STROKE = 4
+local TITLE_BAR_STROKE = 1
+local SIDEBAR_STROKE = 1
 
 Slate.Theme = {
     background = Color3.fromRGB(15, 15, 24),
