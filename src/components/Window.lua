@@ -1217,6 +1217,7 @@ local function playBootReveal(self)
     refs.content.Visible = true
     refs.sidebar.Visible = state.ShowSidebar and boot.sidebarVisible
     refs.titleBar.Visible = true
+    applyWindowMetadata(self)
 end
 
 applyWindowMetadata = function(self)
