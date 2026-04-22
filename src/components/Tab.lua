@@ -6,7 +6,7 @@ local TabMeta = {}
 
 local ACTIVE_FILL_TRANSPARENCY = 0.84
 local ACTIVE_ICON_TRANSPARENCY = 0.1
-local ACTIVE_LINE_WIDTH = 1
+local ACTIVE_LINE_WIDTH = 3
 local DEFAULT_ICON = "circle-question-mark"
 local TAB_HEIGHT = 48
 local TAB_ICON_SIZE = 20

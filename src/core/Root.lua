@@ -18,14 +18,17 @@ local function resolveContainer()
     end
 
     local localPlayer = Players.LocalPlayer
-    if RunService:IsStudio() and localPlayer then
-        local playerGui = localPlayer:FindFirstChildOfClass("PlayerGui") or localPlayer:WaitForChild("PlayerGui")
-        if playerGui then
-            return playerGui
-        end
+    local playerGui = localPlayer and (localPlayer:FindFirstChildOfClass("PlayerGui") or localPlayer:WaitForChild("PlayerGui"))
+
+    if RunService:IsStudio() and playerGui then
+        return playerGui
     end
 
-    return CoreGui
+    if CoreGui then
+        return CoreGui
+    end
+
+    return playerGui
 end
 
 local function findOwnedRoot(container)

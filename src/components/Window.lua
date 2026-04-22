@@ -1,10 +1,16 @@
 local Theme = require(script.Parent.Parent.theme.Theme)
 local Tab = require(script.Parent.Tab)
+local TweenService = game:GetService("TweenService")
+local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
 
 local Window = {}
 local WindowMeta = {}
-local CHIP_TEXT = "SLATE"
+local CHIP_FONT = Enum.Font.GothamBold
+local CHIP_FONT_SIZE = 12
+local CHIP_HEIGHT = 20
+local CHIP_PADDING_X = 24
+local CHIP_TWEEN_INFO = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local TITLE_BAR_HEIGHT = 36
 local TITLE_BAR_STROKE = 1
 local SIDEBAR_STROKE = 1
@@ -198,7 +204,7 @@ local function createTitleBar(frame: Frame)
     accentChip.BackgroundTransparency = 0.84
     accentChip.BorderSizePixel = 0
     accentChip.Position = UDim2.fromScale(0.5, 0.5)
-    accentChip.Size = UDim2.fromOffset(74, 20)
+    accentChip.Size = UDim2.fromOffset(74, CHIP_HEIGHT)
     accentChip.ZIndex = titleBar.ZIndex + 1
     accentChip:SetAttribute("SlateComponent", "AccentChip")
     accentChip.Parent = titleBar
@@ -207,9 +213,9 @@ local function createTitleBar(frame: Frame)
     accentCorner.CornerRadius = UDim.new(1, 0)
     accentCorner.Parent = accentChip
 
-    local accentLabel = createTextLabel("ChipLabel", Enum.Font.GothamBold, 12, Theme.accent, accentChip.ZIndex + 1)
+    local accentLabel = createTextLabel("ChipLabel", CHIP_FONT, CHIP_FONT_SIZE, Theme.accent, accentChip.ZIndex + 1)
     accentLabel.Size = UDim2.fromScale(1, 1)
-    accentLabel.Text = CHIP_TEXT
+    accentLabel.Text = ""
     accentLabel.TextXAlignment = Enum.TextXAlignment.Center
     accentLabel.Parent = accentChip
 
@@ -394,8 +400,28 @@ local function applyMetadata(self)
     refs.versionLabel.Visible = state.Version ~= nil
     refs.accentChip.BackgroundColor3 = Theme.accent
     refs.accentChip.BackgroundTransparency = 0.84
-    refs.accentLabel.Text = CHIP_TEXT
     refs.accentLabel.TextColor3 = Theme.accent
+
+    local activeTabTitle = "Slate"
+    for _, tab in ipairs(self._tabs) do
+        if tab.Active and tab.Visible then
+            activeTabTitle = tab.Title
+            break
+        end
+    end
+
+    if refs.accentLabel.Text ~= activeTabTitle then
+        refs.accentLabel.Text = activeTabTitle
+
+        local textWidth = TextService:GetTextSize(
+            activeTabTitle, CHIP_FONT_SIZE, CHIP_FONT, Vector2.new(math.huge, math.huge)
+        ).X
+        local targetWidth = textWidth + CHIP_PADDING_X
+
+        TweenService:Create(refs.accentChip, CHIP_TWEEN_INFO, {
+            Size = UDim2.fromOffset(targetWidth, CHIP_HEIGHT)
+        }):Play()
+    end
     refs.sidebar.BackgroundColor3 = Theme["nav-bg"]
     refs.sidebar.Size = UDim2.new(0, state.SidebarWidth, 1, -TITLE_BAR_HEIGHT)
     refs.sidebar.Visible = state.ShowSidebar
