@@ -5,6 +5,8 @@ local Theme = {
     ["text-primary"] = Color3.fromRGB(212, 212, 236),
     ["text-secondary"] = Color3.fromRGB(94, 94, 126),
     accent = Color3.fromRGB(255, 91, 155),
+    surface = Color3.fromRGB(21, 21, 33),
+    ["surface-stroke"] = Color3.fromRGB(38, 38, 58),
 }
 
 return Theme

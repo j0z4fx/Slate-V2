@@ -5,6 +5,8 @@ local Theme = {
     ["text-primary"] = Color3.fromRGB(212, 212, 236),
     ["text-secondary"] = Color3.fromRGB(94, 94, 126),
     accent = Color3.fromRGB(255, 91, 155),
+    surface = Color3.fromRGB(21, 21, 33),
+    ["surface-stroke"] = Color3.fromRGB(38, 38, 58),
 }
 
 local Players = game:GetService("Players")
@@ -418,6 +420,140 @@ function TabMeta.__newindex(self, key, value)
     error(string.format("Unsupported tab property %q", tostring(key)))
 end
 
+local Groupbox = (function()
+    local Groupbox = {}
+    local GroupboxMeta = {}
+
+    local TITLE_HEIGHT = 26
+    local TITLE_FONT_SIZE = 11
+    local TITLE_COLOR = Color3.fromRGB(94, 94, 126)
+    local CORNER_RADIUS = 6
+    local STROKE_THICKNESS = 1
+    local CONTENT_GAP = 6
+
+    local function createGroupbox(parent)
+        local frame = Instance.new("Frame")
+        frame.Name = "Groupbox"
+        frame.AutomaticSize = Enum.AutomaticSize.Y
+        frame.BackgroundColor3 = Theme.surface
+        frame.BorderSizePixel = 0
+        frame.Size = UDim2.new(1, 0, 0, 0)
+        frame:SetAttribute("SlateComponent", "Groupbox")
+        frame.Parent = parent
+
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, CORNER_RADIUS)
+        corner.Parent = frame
+
+        local stroke = Instance.new("UIStroke")
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Color = Theme["surface-stroke"]
+        stroke.Thickness = STROKE_THICKNESS
+        stroke.Parent = frame
+
+        local frameLayout = Instance.new("UIListLayout")
+        frameLayout.FillDirection = Enum.FillDirection.Vertical
+        frameLayout.Padding = UDim.new(0, 0)
+        frameLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        frameLayout.Parent = frame
+
+        local titleBar = Instance.new("Frame")
+        titleBar.Name = "TitleBar"
+        titleBar.BackgroundColor3 = Theme.surface
+        titleBar.BorderSizePixel = 0
+        titleBar.LayoutOrder = 1
+        titleBar.Size = UDim2.new(1, 0, 0, TITLE_HEIGHT)
+        titleBar.ZIndex = frame.ZIndex + 1
+        titleBar.Parent = frame
+
+        local titleCorner = Instance.new("UICorner")
+        titleCorner.CornerRadius = UDim.new(0, CORNER_RADIUS)
+        titleCorner.Parent = titleBar
+
+        local titlePadding = Instance.new("UIPadding")
+        titlePadding.PaddingTop = UDim.new(0, 7)
+        titlePadding.PaddingBottom = UDim.new(0, 6)
+        titlePadding.PaddingLeft = UDim.new(0, 12)
+        titlePadding.Parent = titleBar
+
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Name = "TitleLabel"
+        titleLabel.AutomaticSize = Enum.AutomaticSize.X
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.BorderSizePixel = 0
+        titleLabel.Size = UDim2.new(0, 0, 1, 0)
+        titleLabel.TextColor3 = TITLE_COLOR
+        titleLabel.TextSize = TITLE_FONT_SIZE
+        titleLabel.TextScaled = false
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        titleLabel.TextYAlignment = Enum.TextYAlignment.Center
+        titleLabel.ZIndex = titleBar.ZIndex + 1
+        titleLabel.Parent = titleBar
+
+        local fontOk, font = pcall(Font.new, "rbxasset://fonts/families/Inter.json", Enum.FontWeight.SemiBold)
+        if fontOk then
+            titleLabel.FontFace = font
+        else
+            titleLabel.Font = Enum.Font.GothamBold
+        end
+
+        local separator = Instance.new("Frame")
+        separator.Name = "Separator"
+        separator.AnchorPoint = Vector2.new(0, 1)
+        separator.BackgroundColor3 = Theme["surface-stroke"]
+        separator.BorderSizePixel = 0
+        separator.Position = UDim2.new(0, 0, 1, 0)
+        separator.Size = UDim2.new(1, 0, 0, 1)
+        separator.ZIndex = titleBar.ZIndex
+        separator.Parent = titleBar
+
+        local content = Instance.new("Frame")
+        content.Name = "Content"
+        content.AutomaticSize = Enum.AutomaticSize.Y
+        content.BackgroundTransparency = 1
+        content.BorderSizePixel = 0
+        content.LayoutOrder = 2
+        content.Size = UDim2.new(1, 0, 0, 0)
+        content.ZIndex = frame.ZIndex + 1
+        content.Parent = frame
+
+        local contentPadding = Instance.new("UIPadding")
+        contentPadding.PaddingTop = UDim.new(0, 8)
+        contentPadding.PaddingBottom = UDim.new(0, 10)
+        contentPadding.PaddingLeft = UDim.new(0, 12)
+        contentPadding.PaddingRight = UDim.new(0, 12)
+        contentPadding.Parent = content
+
+        local contentLayout = Instance.new("UIListLayout")
+        contentLayout.FillDirection = Enum.FillDirection.Vertical
+        contentLayout.Padding = UDim.new(0, CONTENT_GAP)
+        contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        contentLayout.Parent = content
+
+        return { frame = frame, titleLabel = titleLabel, content = content }
+    end
+
+    function Groupbox.new(parent, config)
+        local cfg = config or {}
+        local refs = createGroupbox(parent)
+        local self = setmetatable({
+            Instance = refs.frame,
+            Content = refs.content,
+            _refs = refs,
+        }, GroupboxMeta)
+        refs.titleLabel.Text = string.upper(cfg.Title or "Groupbox")
+        return self
+    end
+
+    function GroupboxMeta.__index(self, key)
+        local method = Groupbox[key]
+        if method ~= nil then return method end
+        return rawget(self, key)
+    end
+
+    return Groupbox
+end)()
+
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
@@ -693,16 +829,31 @@ local function createTabContent(content)
     layout.Parent = tabContent
 
     local function makeColumn(name, order)
+        local container = Instance.new("Frame")
+        container.Name = name
+        container.BackgroundTransparency = 1
+        container.BorderSizePixel = 0
+        container.LayoutOrder = order
+        container.Size = UDim2.new(1 / 3, COLUMN_OFFSET, 1, 0)
+        container.ZIndex = tabContent.ZIndex + 1
+        container.Parent = tabContent
+
         local col = Instance.new("Frame")
-        col.Name = name
+        col.Name = "Content"
         col.BackgroundTransparency = 1
         col.BorderSizePixel = 0
-        col.LayoutOrder = order
-        col.Size = UDim2.new(1 / 3, COLUMN_OFFSET, 1, 0)
-        col.ZIndex = tabContent.ZIndex + 1
-        col.Parent = tabContent
+        col.Size = UDim2.fromScale(1, 1)
+        col.ZIndex = container.ZIndex
+        col.Parent = container
 
-        createColumnFade(col, col.ZIndex)
+        local colLayout = Instance.new("UIListLayout")
+        colLayout.FillDirection = Enum.FillDirection.Vertical
+        colLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+        colLayout.Padding = UDim.new(0, 8)
+        colLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        colLayout.Parent = col
+
+        createColumnFade(container, container.ZIndex + 1)
 
         return col
     end
@@ -1044,6 +1195,9 @@ function Window.new(parent: Instance, config)
         Instance = frame,
         Parent = parent,
         Tabs = {},
+        leftColumn = refs.leftColumn,
+        middleColumn = refs.middleColumn,
+        rightColumn = refs.rightColumn,
         _connections = {},
         _cursorVisible = false,
         _dragging = false,
@@ -1126,6 +1280,10 @@ function Window:AddTab(config)
     self:_reconcileTabs(tabConfig.Active and tab or nil)
 
     return tab
+end
+
+function Window:AddGroupbox(column, config)
+    return Groupbox.new(column, config)
 end
 
 function Window:SelectTab(tab)

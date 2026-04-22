@@ -1,10 +1,12 @@
 local Theme = require(script.theme.Theme)
 local Root = require(script.core.Root)
 local Window = require(script.components.Window)
+local Groupbox = require(script.components.Groupbox)
 
 local Slate = {}
 
 Slate.Theme = Theme
+Slate.Groupbox = Groupbox
 
 local function normalizeWindowConfig(selfOrConfig, config)
     if selfOrConfig == Slate then

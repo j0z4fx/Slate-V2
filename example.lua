@@ -16,3 +16,5 @@ Window:AddTab({
     Title = "Profile",
     Icon = "user-round",
 })
+
+Window:AddGroupbox(Window.leftColumn, { Title = "General" })

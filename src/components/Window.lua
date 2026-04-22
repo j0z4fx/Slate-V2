@@ -1,5 +1,6 @@
 local Theme = require(script.Parent.Parent.theme.Theme)
 local Tab = require(script.Parent.Tab)
+local Groupbox = require(script.Parent.Groupbox)
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
@@ -275,16 +276,31 @@ local function createTabContent(content)
     layout.Parent = tabContent
 
     local function makeColumn(name, order)
+        local container = Instance.new("Frame")
+        container.Name = name
+        container.BackgroundTransparency = 1
+        container.BorderSizePixel = 0
+        container.LayoutOrder = order
+        container.Size = UDim2.new(1 / 3, COLUMN_OFFSET, 1, 0)
+        container.ZIndex = tabContent.ZIndex + 1
+        container.Parent = tabContent
+
         local col = Instance.new("Frame")
-        col.Name = name
+        col.Name = "Content"
         col.BackgroundTransparency = 1
         col.BorderSizePixel = 0
-        col.LayoutOrder = order
-        col.Size = UDim2.new(1 / 3, COLUMN_OFFSET, 1, 0)
-        col.ZIndex = tabContent.ZIndex + 1
-        col.Parent = tabContent
+        col.Size = UDim2.fromScale(1, 1)
+        col.ZIndex = container.ZIndex
+        col.Parent = container
 
-        createColumnFade(col, col.ZIndex)
+        local colLayout = Instance.new("UIListLayout")
+        colLayout.FillDirection = Enum.FillDirection.Vertical
+        colLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+        colLayout.Padding = UDim.new(0, 8)
+        colLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        colLayout.Parent = col
+
+        createColumnFade(container, container.ZIndex + 1)
 
         return col
     end
@@ -626,6 +642,9 @@ function Window.new(parent: Instance, config)
         Instance = frame,
         Parent = parent,
         Tabs = {},
+        leftColumn = refs.leftColumn,
+        middleColumn = refs.middleColumn,
+        rightColumn = refs.rightColumn,
         _connections = {},
         _cursorVisible = false,
         _dragging = false,
@@ -708,6 +727,10 @@ function Window:AddTab(config)
     self:_reconcileTabs(tabConfig.Active and tab or nil)
 
     return tab
+end
+
+function Window:AddGroupbox(column, config)
+    return Groupbox.new(column, config)
 end
 
 function Window:SelectTab(tab)
