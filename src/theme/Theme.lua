@@ -7,6 +7,9 @@ local Theme = {
     accent = Color3.fromRGB(255, 91, 155),
     surface = Color3.fromRGB(21, 21, 33),
     ["surface-stroke"] = Color3.fromRGB(38, 38, 58),
+    ["toggle-body"] = Color3.fromRGB(32, 32, 46),
+    ["toggle-dot"] = Color3.fromRGB(94, 94, 126),
+    ["toggle-stroke"] = Color3.fromRGB(46, 46, 68),
 }
 
 return Theme

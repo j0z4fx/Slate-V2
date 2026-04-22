@@ -19,5 +19,9 @@ local Profile = Window:AddTab({
 
 Home:AddGroupbox("leftColumn", { Title = "General" })
 Profile:AddGroupbox("leftColumn", { Title = "Profile" })
-Window.Tabs.Settings:AddGroupbox("leftColumn", { Title = "Settings" })
+local SettingsGroup = Window.Tabs.Settings:AddGroupbox("leftColumn", { Title = "Settings" })
 Window.Tabs.Settings:AddGroupbox("middleColumn", { Title = "Advanced" })
+SettingsGroup:AddToggle({
+    Text = "Example Toggle",
+    Default = false,
+})

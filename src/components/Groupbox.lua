@@ -1,4 +1,5 @@
 local Theme = require(script.Parent.Parent.theme.Theme)
+local Toggle = require(script.Parent.Toggle)
 
 local Groupbox = {}
 local GroupboxMeta = {}
@@ -128,6 +129,7 @@ function Groupbox.new(parent, config)
         Content = refs.content,
         Column = parent,
         LayoutOrder = refs.frame.LayoutOrder,
+        Controls = {},
         _refs = refs,
         _dragging = false,
     }, GroupboxMeta)
@@ -135,6 +137,22 @@ function Groupbox.new(parent, config)
     refs.titleLabel.Text = string.upper(cfg.Title or "Groupbox")
 
     return self
+end
+
+function Groupbox:AddToggle(configOrText, config)
+    local toggleConfig
+
+    if type(configOrText) == "table" then
+        toggleConfig = configOrText
+    else
+        toggleConfig = config or {}
+        toggleConfig.Text = configOrText
+    end
+
+    local toggle = Toggle.new(self.Content, toggleConfig)
+    table.insert(self.Controls, toggle)
+
+    return toggle
 end
 
 function Groupbox:SetPlacement(column, layoutOrder)

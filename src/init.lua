@@ -2,12 +2,14 @@ local Theme = require(script.theme.Theme)
 local Root = require(script.core.Root)
 local Window = require(script.components.Window)
 local Groupbox = require(script.components.Groupbox)
+local Toggle = require(script.components.Toggle)
 
 local Slate = {}
 local mountedWindows = {}
 
 Slate.Theme = Theme
 Slate.Groupbox = Groupbox
+Slate.Toggle = Toggle
 
 local function normalizeWindowConfig(selfOrConfig, config)
     if selfOrConfig == Slate then
