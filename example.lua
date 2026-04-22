@@ -22,8 +22,8 @@ Profile:AddGroupbox("leftColumn", { Title = "Profile" })
 Window.Tabs.Settings:AddGroupbox("leftColumn", { Title = "Settings" })
 Window.Tabs.Settings:AddGroupbox("middleColumn", { Title = "Configuration" })
 HomeGroup:AddLabel({
-    Text = "Library v2.4.1",
-    Subtext = "Loaded successfully",
+    Text = "Example Label",
+    Subtext = "Label Subtext",
 })
 HomeGroup:AddDivider()
 HomeGroup:AddSeparator("Separator")
