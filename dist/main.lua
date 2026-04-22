@@ -142,6 +142,8 @@ function Lucide.GetAsset(name)
     return nil
 end
 
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local ColorPicker = {}
 local ColorPickerMeta = {}
@@ -616,8 +618,6 @@ function ColorPickerMeta.__newindex(self, key, value)
     error(string.format("Unsupported color picker property %q", tostring(key)))
 end
 
-local UserInputService = game:GetService("UserInputService")
-
 
 local Divider = {}
 local DividerMeta = {}
@@ -677,6 +677,7 @@ function DividerMeta.__index(self, key)
     return rawget(self, key)
 end
 
+local UserInputService = game:GetService("UserInputService")
 
 local KeyPicker = {}
 local KeyPickerMeta = {}
@@ -1322,6 +1323,7 @@ function SeparatorMeta.__newindex(self, key, value)
     error(string.format("Unsupported separator property %q", tostring(key)))
 end
 
+local TweenService = game:GetService("TweenService")
 
 local Toggle = {}
 local ToggleMeta = {}
@@ -1701,8 +1703,6 @@ function ToggleMeta.__newindex(self, key, value)
 
     error(string.format("Unsupported toggle property %q", tostring(key)))
 end
-
-local TweenService = game:GetService("TweenService")
 
 
 local Groupbox = {}
@@ -2329,6 +2329,9 @@ function TabMeta.__newindex(self, key, value)
     error(string.format("Unsupported tab property %q", tostring(key)))
 end
 
+local TweenService = game:GetService("TweenService")
+local TextService = game:GetService("TextService")
+local UserInputService = game:GetService("UserInputService")
 
 local Window = {}
 local WindowMeta = {}
@@ -3486,8 +3489,6 @@ function WindowMeta.__newindex(self, key, value)
 
     error(string.format("Unsupported window property %q", tostring(key)))
 end
-
-local TextService = game:GetService("TextService")
 
 
 local Slate = {}
