@@ -990,6 +990,10 @@ local function setCursorVisible(self, isVisible)
     end
 end
 
+local updateDraggedGroupboxPosition
+local updateDragPlaceholder
+local endGroupboxDrag
+
 local function attachInteractions(self)
     local refs = self._refs
 
@@ -1126,7 +1130,7 @@ local function setGroupboxZOffset(root, delta)
     end
 end
 
-local function updateDraggedGroupboxPosition(self)
+updateDraggedGroupboxPosition = function(self)
     local dragState = self._groupboxDrag
     if not dragState.dragging or not dragState.groupbox then
         return
@@ -1141,7 +1145,7 @@ local function updateDraggedGroupboxPosition(self)
     )
 end
 
-local function updateDragPlaceholder(self)
+updateDragPlaceholder = function(self)
     local dragState = self._groupboxDrag
     if not dragState.dragging or not dragState.groupbox or not dragState.placeholder then
         return
@@ -1285,7 +1289,7 @@ local function beginGroupboxDrag(self, groupbox, inputPosition)
     updateDragPlaceholder(self)
 end
 
-local function endGroupboxDrag(self)
+endGroupboxDrag = function(self)
     local dragState = self._groupboxDrag
     if not dragState.dragging or not dragState.groupbox then
         return
