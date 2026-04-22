@@ -17,11 +17,11 @@ local Profile = Window:AddTab({
     Icon = "user-round",
 })
 
-Home:AddGroupbox("leftColumn", { Title = "General" })
+local HomeGroup = Home:AddGroupbox("leftColumn", { Title = "General" })
 Profile:AddGroupbox("leftColumn", { Title = "Profile" })
-local SettingsGroup = Window.Tabs.Settings:AddGroupbox("leftColumn", { Title = "Settings" })
+Window.Tabs.Settings:AddGroupbox("leftColumn", { Title = "Settings" })
 Window.Tabs.Settings:AddGroupbox("middleColumn", { Title = "Advanced" })
-SettingsGroup:AddToggle({
+HomeGroup:AddToggle({
     Text = "Example Toggle",
     Default = false,
 })

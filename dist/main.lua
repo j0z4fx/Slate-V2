@@ -2199,11 +2199,30 @@ end
 
 
 local Slate = {}
-local mountedWindows = {}
+
+local getGlobalEnvironment = getgenv or function()
+    return _G
+end
+
+local runtime = getGlobalEnvironment()
+runtime.__SlateMountedWindows = runtime.__SlateMountedWindows or {}
+
+local mountedWindows = runtime.__SlateMountedWindows
 
 Slate.Theme = Theme
 Slate.Groupbox = Groupbox
 Slate.Toggle = Toggle
+
+local function destroyMountedWindows()
+    for index = #mountedWindows, 1, -1 do
+        local window = mountedWindows[index]
+        if window and not window._destroyed then
+            window:Destroy()
+        end
+
+        mountedWindows[index] = nil
+    end
+end
 
 local function normalizeWindowConfig(selfOrConfig, config)
     if selfOrConfig == Slate then
@@ -2228,16 +2247,11 @@ function Slate:CreateWindow(config)
 end
 
 function Slate:Destroy()
-    for index = #mountedWindows, 1, -1 do
-        local window = mountedWindows[index]
-        if window and not window._destroyed then
-            window:Destroy()
-        end
-        mountedWindows[index] = nil
-    end
-
+    destroyMountedWindows()
     Root.destroy()
 end
+
+destroyMountedWindows()
 
 return Slate
 
