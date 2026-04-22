@@ -1002,6 +1002,7 @@ local function forceBootVisible(self)
 
     boot.active = false
     boot.loaderVisible = false
+    boot.revealStarted = false
     boot.titleBarVisible = true
     boot.sidebarVisible = state.ShowSidebar
     boot.contentVisible = true
@@ -1119,6 +1120,11 @@ local function playBootReveal(self)
     applyMetadata(self)
     revealTabs(self)
     revealActivePage(self)
+    boot.revealStarted = false
+    boot.contentVisible = true
+    refs.content.Visible = true
+    refs.sidebar.Visible = state.ShowSidebar and boot.sidebarVisible
+    refs.titleBar.Visible = true
 end
 
 local function applyMetadata(self)
