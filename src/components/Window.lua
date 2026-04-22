@@ -148,11 +148,6 @@ local function safeDisconnect(connection)
     end
 end
 
-local function waitForTween(tween)
-    tween:Play()
-    return tween.Completed:Wait()
-end
-
 local function getCompactSize(size)
     return UDim2.new(
         size.X.Scale,
@@ -205,7 +200,7 @@ local function applyTransparencyAlpha(state, alpha)
     end
 end
 
-local function tweenTransparencyAlpha(state, fromAlpha, toAlpha, tweenInfo)
+local function tweenTransparencyAlpha(state, fromAlpha, toAlpha, tweenInfo, shouldWait)
     local driver = Instance.new("NumberValue")
     driver.Value = fromAlpha
 
@@ -219,7 +214,15 @@ local function tweenTransparencyAlpha(state, fromAlpha, toAlpha, tweenInfo)
         Value = toAlpha,
     })
 
-    local playbackState = waitForTween(tween)
+    tween:Play()
+
+    local playbackState = Enum.PlaybackState.Completed
+    if shouldWait == nil or shouldWait then
+        playbackState = tween.Completed:Wait()
+    else
+        task.wait(tweenInfo.Time)
+    end
+
     connection:Disconnect()
     driver:Destroy()
     applyTransparencyAlpha(state, toAlpha)
@@ -1018,7 +1021,7 @@ local function hideLoaderOverlay(self)
     end
 
     local state = captureTransparencyState(refs.loaderOverlay)
-    local playbackState = tweenTransparencyAlpha(state, 0, 1, LOADER_PANEL_TWEEN_INFO)
+    local playbackState = tweenTransparencyAlpha(state, 0, 1, LOADER_PANEL_TWEEN_INFO, false)
 
     if playbackState == Enum.PlaybackState.Completed and refs.loaderOverlay.Parent ~= nil then
         refs.loaderOverlay.Visible = false
@@ -1072,9 +1075,12 @@ local function playBootReveal(self)
     local refs = self._refs
     local state = self._state
 
-    waitForTween(TweenService:Create(self.Instance, WINDOW_BOOT_EXPAND_TWEEN_INFO, {
+    local expandTween = TweenService:Create(self.Instance, WINDOW_BOOT_EXPAND_TWEEN_INFO, {
         Size = state.Size,
-    }))
+    })
+    expandTween:Play()
+    task.wait(WINDOW_BOOT_EXPAND_TWEEN_INFO.Time)
+    self.Instance.Size = state.Size
 
     boot.active = false
     boot.compactSize = getCompactSize(state.Size)
@@ -1084,18 +1090,24 @@ local function playBootReveal(self)
     refs.titleBar.Visible = true
     refs.titleBar.Position = UDim2.fromOffset(0, -TITLE_BAR_HEIGHT)
     applyMetadata(self)
-    waitForTween(TweenService:Create(refs.titleBar, WINDOW_BOOT_TITLE_TWEEN_INFO, {
+    local titleTween = TweenService:Create(refs.titleBar, WINDOW_BOOT_TITLE_TWEEN_INFO, {
         Position = UDim2.fromOffset(0, 0),
-    }))
+    })
+    titleTween:Play()
+    task.wait(WINDOW_BOOT_TITLE_TWEEN_INFO.Time)
+    refs.titleBar.Position = UDim2.fromOffset(0, 0)
 
     if state.ShowSidebar then
         boot.sidebarVisible = true
         refs.sidebar.Visible = true
         refs.sidebar.Position = UDim2.fromOffset(-state.SidebarWidth, TITLE_BAR_HEIGHT)
         applyMetadata(self)
-        waitForTween(TweenService:Create(refs.sidebar, WINDOW_BOOT_SIDEBAR_TWEEN_INFO, {
+        local sidebarTween = TweenService:Create(refs.sidebar, WINDOW_BOOT_SIDEBAR_TWEEN_INFO, {
             Position = UDim2.fromOffset(0, TITLE_BAR_HEIGHT),
-        }))
+        })
+        sidebarTween:Play()
+        task.wait(WINDOW_BOOT_SIDEBAR_TWEEN_INFO.Time)
+        refs.sidebar.Position = UDim2.fromOffset(0, TITLE_BAR_HEIGHT)
     end
 
     boot.tabsVisible = true
