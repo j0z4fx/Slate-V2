@@ -604,6 +604,7 @@ end
 local updateDraggedGroupboxPosition
 local updateDragPlaceholder
 local endGroupboxDrag
+local applyWindowMetadata
 
 local function attachInteractions(self)
     local refs = self._refs
@@ -1094,7 +1095,7 @@ local function forceBootVisible(self)
         tab._bootVisible = true
     end
 
-    applyMetadata(self)
+    applyWindowMetadata(self)
 end
 
 local function hideLoaderOverlay(self)
@@ -1152,7 +1153,7 @@ local function revealActivePage(self)
     end
 
     self._boot.contentVisible = true
-    applyMetadata(self)
+    applyWindowMetadata(self)
 
     if not activeTab.Page.Visible then
         return
@@ -1208,7 +1209,7 @@ local function playBootReveal(self)
     end
 
     boot.tabsVisible = true
-    applyMetadata(self)
+    applyWindowMetadata(self)
     revealTabs(self)
     revealActivePage(self)
     boot.revealStarted = false
@@ -1218,7 +1219,7 @@ local function playBootReveal(self)
     refs.titleBar.Visible = true
 end
 
-local function applyMetadata(self)
+applyWindowMetadata = function(self)
     local state = self._state
     local refs = self._refs
     local boot = self._boot
@@ -1458,7 +1459,7 @@ function Window.new(parent: Instance, config)
         _tabs = {},
     }, WindowMeta)
 
-    applyMetadata(self)
+    applyWindowMetadata(self)
     setLoaderProgress(self, 0.08, "Preparing Slate...", true)
     attachInteractions(self)
     Window.AddTab(self, {
@@ -1490,7 +1491,7 @@ function Window:Set(propertyOrProperties, value)
         applyProperty(self, propertyOrProperties, value)
     end
 
-    applyMetadata(self)
+    applyWindowMetadata(self)
 
     return self
 end
@@ -1662,7 +1663,7 @@ function Window:SelectTab(tab)
         candidate._state.Active = candidate == tab and candidate.Visible
     end
 
-    applyMetadata(self)
+    applyWindowMetadata(self)
 
     return self
 end
@@ -1693,7 +1694,7 @@ function Window:_reconcileTabs(preferredTab)
         self.Tabs[tab.Title] = tab
     end
 
-    applyMetadata(self)
+    applyWindowMetadata(self)
 end
 
 function Window:_removeTab(tab)
