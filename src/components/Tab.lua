@@ -251,9 +251,11 @@ local function applyMetadata(self)
     local state = self._state
     local isActive = state.Active and state.Visible
     local boot = self.Window._boot
+    local buttonsReady = (not boot.active and not boot.revealStarted) or self._bootVisible
+    local pageReady = (not boot.active and not boot.revealStarted) or boot.contentVisible
 
     refs.button.LayoutOrder = state.Order
-    refs.button.Visible = state.Visible and ((not boot.active) or self._bootVisible)
+    refs.button.Visible = state.Visible and buttonsReady
     refs.button:SetAttribute("Title", state.Title)
     refs.button:SetAttribute("Icon", state.Icon)
     refs.button:SetAttribute("Active", isActive)
@@ -268,7 +270,7 @@ local function applyMetadata(self)
     refs.icon.ImageColor3 = isActive and Theme.accent or Theme["text-secondary"]
     refs.icon.ImageTransparency = isActive and ACTIVE_ICON_TRANSPARENCY or 0
 
-    refs.page.Visible = isActive and ((not boot.active) or boot.contentVisible)
+    refs.page.Visible = isActive and pageReady
 end
 
 local function applyProperty(self, property, value)

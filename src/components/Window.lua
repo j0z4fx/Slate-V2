@@ -27,9 +27,9 @@ local GROUPBOX_DRAG_PLACEHOLDER_INSET = 7
 local GROUPBOX_DRAG_ZINDEX_OFFSET = 100
 local GROUPBOX_DRAG_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local LOADER_BASE_PROGRESS = 0.2
-local LOADER_COMPACT_SCALE = 0.5
-local LOADER_MIN_WIDTH = 320
-local LOADER_MIN_HEIGHT = 180
+local LOADER_COMPACT_SCALE = 0.25
+local LOADER_MIN_WIDTH = 240
+local LOADER_MIN_HEIGHT = 135
 local LOADER_TRACK_HEIGHT = 2
 local LOADER_BAR_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local LOADER_PANEL_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -979,7 +979,7 @@ local function scheduleAutoFinish(self)
     end
 
     boot.autoFinishScheduled = true
-    task.defer(function()
+    task.delay(0.15, function()
         boot.autoFinishScheduled = false
 
         if self._destroyed or not boot.active or boot.revealStarted then
@@ -990,6 +990,23 @@ local function scheduleAutoFinish(self)
             self:FinishLoading()
         end
     end)
+end
+
+local function forceBootVisible(self)
+    local boot = self._boot
+    local state = self._state
+
+    boot.active = false
+    boot.loaderVisible = false
+    boot.titleBarVisible = true
+    boot.sidebarVisible = state.ShowSidebar
+    boot.contentVisible = true
+
+    for _, tab in ipairs(self._tabs) do
+        tab._bootVisible = true
+    end
+
+    applyMetadata(self)
 end
 
 local function hideLoaderOverlay(self)
@@ -1466,7 +1483,10 @@ function Window:FinishLoading(text)
             return
         end
 
-        playBootReveal(self)
+        local ok = pcall(playBootReveal, self)
+        if not ok and not self._destroyed then
+            forceBootVisible(self)
+        end
     end)
 
     return self

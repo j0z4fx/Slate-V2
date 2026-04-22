@@ -2247,9 +2247,11 @@ local function applyMetadata(self)
     local state = self._state
     local isActive = state.Active and state.Visible
     local boot = self.Window._boot
+    local buttonsReady = (not boot.active and not boot.revealStarted) or self._bootVisible
+    local pageReady = (not boot.active and not boot.revealStarted) or boot.contentVisible
 
     refs.button.LayoutOrder = state.Order
-    refs.button.Visible = state.Visible and ((not boot.active) or self._bootVisible)
+    refs.button.Visible = state.Visible and buttonsReady
     refs.button:SetAttribute("Title", state.Title)
     refs.button:SetAttribute("Icon", state.Icon)
     refs.button:SetAttribute("Active", isActive)
@@ -2264,7 +2266,7 @@ local function applyMetadata(self)
     refs.icon.ImageColor3 = isActive and Theme.accent or Theme["text-secondary"]
     refs.icon.ImageTransparency = isActive and ACTIVE_ICON_TRANSPARENCY or 0
 
-    refs.page.Visible = isActive and ((not boot.active) or boot.contentVisible)
+    refs.page.Visible = isActive and pageReady
 end
 
 local function applyProperty(self, property, value)
@@ -2445,9 +2447,9 @@ local GROUPBOX_DRAG_PLACEHOLDER_INSET = 7
 local GROUPBOX_DRAG_ZINDEX_OFFSET = 100
 local GROUPBOX_DRAG_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local LOADER_BASE_PROGRESS = 0.2
-local LOADER_COMPACT_SCALE = 0.5
-local LOADER_MIN_WIDTH = 320
-local LOADER_MIN_HEIGHT = 180
+local LOADER_COMPACT_SCALE = 0.25
+local LOADER_MIN_WIDTH = 240
+local LOADER_MIN_HEIGHT = 135
 local LOADER_TRACK_HEIGHT = 2
 local LOADER_BAR_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local LOADER_PANEL_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -3397,7 +3399,7 @@ local function scheduleAutoFinish(self)
     end
 
     boot.autoFinishScheduled = true
-    task.defer(function()
+    task.delay(0.15, function()
         boot.autoFinishScheduled = false
 
         if self._destroyed or not boot.active or boot.revealStarted then
@@ -3408,6 +3410,23 @@ local function scheduleAutoFinish(self)
             self:FinishLoading()
         end
     end)
+end
+
+local function forceBootVisible(self)
+    local boot = self._boot
+    local state = self._state
+
+    boot.active = false
+    boot.loaderVisible = false
+    boot.titleBarVisible = true
+    boot.sidebarVisible = state.ShowSidebar
+    boot.contentVisible = true
+
+    for _, tab in ipairs(self._tabs) do
+        tab._bootVisible = true
+    end
+
+    applyMetadata(self)
 end
 
 local function hideLoaderOverlay(self)
@@ -3884,7 +3903,10 @@ function Window:FinishLoading(text)
             return
         end
 
-        playBootReveal(self)
+        local ok = pcall(playBootReveal, self)
+        if not ok and not self._destroyed then
+            forceBootVisible(self)
+        end
     end)
 
     return self
