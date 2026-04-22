@@ -28,13 +28,6 @@ local ROOT_NAME = "Slate"
 local ROOT_ATTRIBUTE = "SlateOwned"
 
 local function resolveContainer()
-    if typeof(getHiddenUi) == "function" then
-        local success, hiddenUi = pcall(getHiddenUi)
-        if success and typeof(hiddenUi) == "Instance" then
-            return hiddenUi
-        end
-    end
-
     local localPlayer = Players.LocalPlayer
     local playerGui = localPlayer and (localPlayer:FindFirstChildOfClass("PlayerGui") or localPlayer:WaitForChild("PlayerGui"))
 
@@ -44,6 +37,13 @@ local function resolveContainer()
 
     if CoreGui then
         return CoreGui
+    end
+
+    if typeof(getHiddenUi) == "function" then
+        local success, hiddenUi = pcall(getHiddenUi)
+        if success and typeof(hiddenUi) == "Instance" then
+            return hiddenUi
+        end
     end
 
     return playerGui
