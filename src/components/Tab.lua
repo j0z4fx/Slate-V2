@@ -256,11 +256,13 @@ local function applyMetadata(self)
     local isActive = state.Active and state.Visible
     local window = self.Window
     local boot = window and window._boot
+    local transition = window and window._tabTransition
     local bootActive = boot and boot.active or false
     local bootRevealStarted = boot and boot.revealStarted or false
     local contentVisible = boot and boot.contentVisible or true
     local buttonsReady = (not bootActive and not bootRevealStarted) or self._bootVisible
     local pageReady = (not bootActive and not bootRevealStarted) or contentVisible
+    local suppressIndicator = transition and transition.active and (self == transition.fromTab or self == transition.toTab)
 
     refs.button.LayoutOrder = state.Order
     refs.button.Visible = state.Visible and buttonsReady
@@ -268,8 +270,8 @@ local function applyMetadata(self)
     refs.button:SetAttribute("Icon", state.Icon)
     refs.button:SetAttribute("Active", isActive)
 
-    refs.activeLine.Visible = isActive
-    refs.activeFill.Visible = isActive
+    refs.activeLine.Visible = isActive and not suppressIndicator
+    refs.activeFill.Visible = isActive and not suppressIndicator
     refs.activeLine.BackgroundColor3 = Theme.accent
     refs.activeFill.BackgroundColor3 = Theme.accent
     refs.activeFill.BackgroundTransparency = ACTIVE_FILL_TRANSPARENCY

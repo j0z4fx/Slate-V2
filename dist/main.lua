@@ -2276,11 +2276,13 @@ local function applyMetadata(self)
     local isActive = state.Active and state.Visible
     local window = self.Window
     local boot = window and window._boot
+    local transition = window and window._tabTransition
     local bootActive = boot and boot.active or false
     local bootRevealStarted = boot and boot.revealStarted or false
     local contentVisible = boot and boot.contentVisible or true
     local buttonsReady = (not bootActive and not bootRevealStarted) or self._bootVisible
     local pageReady = (not bootActive and not bootRevealStarted) or contentVisible
+    local suppressIndicator = transition and transition.active and (self == transition.fromTab or self == transition.toTab)
 
     refs.button.LayoutOrder = state.Order
     refs.button.Visible = state.Visible and buttonsReady
@@ -2288,8 +2290,8 @@ local function applyMetadata(self)
     refs.button:SetAttribute("Icon", state.Icon)
     refs.button:SetAttribute("Active", isActive)
 
-    refs.activeLine.Visible = isActive
-    refs.activeFill.Visible = isActive
+    refs.activeLine.Visible = isActive and not suppressIndicator
+    refs.activeFill.Visible = isActive and not suppressIndicator
     refs.activeLine.BackgroundColor3 = Theme.accent
     refs.activeFill.BackgroundColor3 = Theme.accent
     refs.activeFill.BackgroundTransparency = ACTIVE_FILL_TRANSPARENCY
@@ -2497,6 +2499,8 @@ local WINDOW_BOOT_TITLE_TWEEN_INFO = TweenInfo.new(0.28, Enum.EasingStyle.Quint,
 local WINDOW_BOOT_SIDEBAR_TWEEN_INFO = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local WINDOW_BOOT_TAB_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local WINDOW_BOOT_CONTENT_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local TAB_SWITCH_FILL_TWEEN_INFO = TweenInfo.new(0.14, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local TAB_SWITCH_LINE_TWEEN_INFO = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local WINDOW_BOOT_TAB_STAGGER = 0.055
 local DEFAULT_LOADER_STATUS = "Initializing Slate..."
 local TRANSPARENCY_PROPERTIES = {
@@ -2960,6 +2964,34 @@ local function createSidebar(frame: Frame)
     tabsLayout.SortOrder = Enum.SortOrder.LayoutOrder
     tabsLayout.Parent = sidebarTabs
 
+    local tabTransitionLayer = Instance.new("Frame")
+    tabTransitionLayer.Name = "TabTransition"
+    tabTransitionLayer.BackgroundTransparency = 1
+    tabTransitionLayer.BorderSizePixel = 0
+    tabTransitionLayer.ClipsDescendants = true
+    tabTransitionLayer.Size = UDim2.fromScale(1, 1)
+    tabTransitionLayer.Visible = false
+    tabTransitionLayer.ZIndex = sidebarTabs.ZIndex + 1
+    tabTransitionLayer:SetAttribute("SlateComponent", "TabTransition")
+    tabTransitionLayer.Parent = sidebar
+
+    local tabTransitionFill = Instance.new("Frame")
+    tabTransitionFill.Name = "Fill"
+    tabTransitionFill.BackgroundColor3 = Theme.accent
+    tabTransitionFill.BackgroundTransparency = 0.84
+    tabTransitionFill.BorderSizePixel = 0
+    tabTransitionFill.Visible = false
+    tabTransitionFill.ZIndex = sidebar.ZIndex + 1
+    tabTransitionFill.Parent = tabTransitionLayer
+
+    local tabTransitionLine = Instance.new("Frame")
+    tabTransitionLine.Name = "Line"
+    tabTransitionLine.BackgroundColor3 = Theme.accent
+    tabTransitionLine.BorderSizePixel = 0
+    tabTransitionLine.Visible = false
+    tabTransitionLine.ZIndex = sidebar.ZIndex + 2
+    tabTransitionLine.Parent = tabTransitionLayer
+
     local content = Instance.new("Frame")
     content.Name = "Content"
     content.BackgroundTransparency = 1
@@ -2999,6 +3031,9 @@ local function createSidebar(frame: Frame)
         sidebar = sidebar,
         sidebarStroke = sidebarStroke,
         sidebarTabs = sidebarTabs,
+        tabTransitionFill = tabTransitionFill,
+        tabTransitionLayer = tabTransitionLayer,
+        tabTransitionLine = tabTransitionLine,
         tabsLayout = tabsLayout,
         content = content,
         bottomLeftCornerPatch = bottomLeftCorner,
@@ -3135,6 +3170,131 @@ local function getVisibleTabs(self)
     end)
 
     return visibleTabs
+end
+
+local function setSelectedTab(self, targetTab)
+    for _, candidate in ipairs(self._tabs) do
+        candidate._state.Active = candidate == targetTab and candidate.Visible
+    end
+end
+
+local function clearTabTransition(self)
+    local transition = self._tabTransition
+    local refs = self._refs
+
+    transition.nonce += 1
+    transition.active = false
+    transition.fromTab = nil
+    transition.toTab = nil
+
+    refs.tabTransitionLayer.Visible = false
+    refs.tabTransitionFill.Visible = false
+    refs.tabTransitionLine.Visible = false
+end
+
+local function prepareTabTransition(self, fromTab, toTab)
+    local refs = self._refs
+    local fromRefs = fromTab._refs
+    local toRefs = toTab._refs
+
+    if not refs.sidebar.Visible or not fromRefs.button.Visible or not toRefs.button.Visible then
+        return false
+    end
+
+    local sidebarTabsPosition = refs.tabTransitionLayer.AbsolutePosition
+    local fromWidth = math.max(0, math.floor(fromRefs.button.AbsoluteSize.X + 0.5))
+    local fromHeight = math.max(0, math.floor(fromRefs.button.AbsoluteSize.Y + 0.5))
+    local toWidth = math.max(0, math.floor(toRefs.button.AbsoluteSize.X + 0.5))
+    local toHeight = math.max(0, math.floor(toRefs.button.AbsoluteSize.Y + 0.5))
+
+    if fromWidth == 0 or fromHeight == 0 or toWidth == 0 or toHeight == 0 then
+        return false
+    end
+
+    local lineWidth = math.max(1, math.floor(fromRefs.activeLine.AbsoluteSize.X + 0.5))
+    if lineWidth == 1 and fromRefs.activeLine.Size.X.Offset > 0 then
+        lineWidth = math.max(1, fromRefs.activeLine.Size.X.Offset)
+    end
+
+    local fromY = math.floor((fromRefs.button.AbsolutePosition.Y - sidebarTabsPosition.Y) + 0.5)
+    local toY = math.floor((toRefs.button.AbsolutePosition.Y - sidebarTabsPosition.Y) + 0.5)
+
+    refs.tabTransitionLayer.Visible = true
+    refs.tabTransitionLine.Visible = true
+    refs.tabTransitionFill.Visible = true
+    refs.tabTransitionLine.Position = UDim2.fromOffset(0, fromY)
+    refs.tabTransitionLine.Size = UDim2.fromOffset(lineWidth, fromHeight)
+    refs.tabTransitionFill.Position = UDim2.fromOffset(lineWidth, fromY)
+    refs.tabTransitionFill.Size = UDim2.fromOffset(math.max(0, fromWidth - lineWidth), fromHeight)
+    refs.tabTransitionFill.BackgroundTransparency = fromRefs.activeFill.BackgroundTransparency
+
+    self._tabTransition.active = true
+    self._tabTransition.fromTab = fromTab
+    self._tabTransition.toTab = toTab
+
+    return true, {
+        fromHeight = fromHeight,
+        lineWidth = lineWidth,
+        nonce = self._tabTransition.nonce,
+        toHeight = toHeight,
+        toWidth = toWidth,
+        toY = toY,
+    }
+end
+
+local function playTabSwitchTransition(self, fromTab, toTab)
+    local prepared, transitionData = prepareTabTransition(self, fromTab, toTab)
+    if not prepared then
+        setSelectedTab(self, toTab)
+        applyWindowMetadata(self)
+        return
+    end
+
+    applyWindowMetadata(self)
+
+    local refs = self._refs
+    local fill = refs.tabTransitionFill
+    local line = refs.tabTransitionLine
+
+    local collapseTween = TweenService:Create(fill, TAB_SWITCH_FILL_TWEEN_INFO, {
+        Size = UDim2.fromOffset(0, transitionData.fromHeight),
+    })
+    collapseTween:Play()
+    collapseTween.Completed:Wait()
+    if self._destroyed or self._tabTransition.nonce ~= transitionData.nonce then
+        return
+    end
+    fill.Size = UDim2.fromOffset(0, transitionData.fromHeight)
+
+    local lineTween = TweenService:Create(line, TAB_SWITCH_LINE_TWEEN_INFO, {
+        Position = UDim2.fromOffset(0, transitionData.toY),
+        Size = UDim2.fromOffset(transitionData.lineWidth, transitionData.toHeight),
+    })
+    lineTween:Play()
+    lineTween.Completed:Wait()
+    if self._destroyed or self._tabTransition.nonce ~= transitionData.nonce then
+        return
+    end
+    line.Position = UDim2.fromOffset(0, transitionData.toY)
+    line.Size = UDim2.fromOffset(transitionData.lineWidth, transitionData.toHeight)
+
+    setSelectedTab(self, toTab)
+    fill.Position = UDim2.fromOffset(transitionData.lineWidth, transitionData.toY)
+    fill.Size = UDim2.fromOffset(0, transitionData.toHeight)
+    applyWindowMetadata(self)
+
+    local expandTween = TweenService:Create(fill, TAB_SWITCH_FILL_TWEEN_INFO, {
+        Size = UDim2.fromOffset(math.max(0, transitionData.toWidth - transitionData.lineWidth), transitionData.toHeight),
+    })
+    expandTween:Play()
+    expandTween.Completed:Wait()
+    if self._destroyed or self._tabTransition.nonce ~= transitionData.nonce then
+        return
+    end
+    fill.Size = UDim2.fromOffset(math.max(0, transitionData.toWidth - transitionData.lineWidth), transitionData.toHeight)
+
+    clearTabTransition(self)
+    applyWindowMetadata(self)
 end
 
 local function getGroupboxesInColumn(self, column, exclude)
@@ -3706,6 +3866,9 @@ applyWindowMetadata = function(self)
     refs.loaderStatus.TextColor3 = Theme["text-secondary"]
     refs.loaderPercent.TextColor3 = Theme.accent
     refs.loaderOverlay.Visible = boot.loaderVisible
+    refs.tabTransitionLayer.Visible = self._tabTransition.active
+    refs.tabTransitionFill.BackgroundColor3 = Theme.accent
+    refs.tabTransitionLine.BackgroundColor3 = Theme.accent
 
     local activeTabTitle = "Slate"
     for _, tab in ipairs(self._tabs) do
@@ -3909,6 +4072,12 @@ function Window.new(parent: Instance, config)
         _boot = createBootState(state.Size),
         _refs = refs,
         _state = state,
+        _tabTransition = {
+            active = false,
+            fromTab = nil,
+            nonce = 0,
+            toTab = nil,
+        },
         _tabs = {},
     }, WindowMeta)
 
@@ -4108,20 +4277,36 @@ function Window:_addGroupbox(tab, column, config)
 end
 
 function Window:SelectTab(tab)
-    if self._destroyed or tab._destroyed then
+    if self._destroyed or tab._destroyed or not tab.Visible then
         return self
     end
 
-    for _, candidate in ipairs(self._tabs) do
-        candidate._state.Active = candidate == tab and candidate.Visible
+    if self._tabTransition.active then
+        clearTabTransition(self)
     end
 
-    applyWindowMetadata(self)
+    local currentTab = getActiveTab(self)
+    if currentTab == tab then
+        applyWindowMetadata(self)
+        return self
+    end
+
+    if currentTab == nil or self._boot.active or self._boot.revealStarted then
+        setSelectedTab(self, tab)
+        applyWindowMetadata(self)
+        return self
+    end
+
+    playTabSwitchTransition(self, currentTab, tab)
 
     return self
 end
 
 function Window:_reconcileTabs(preferredTab)
+    if self._tabTransition.active then
+        clearTabTransition(self)
+    end
+
     local visibleTabs = getVisibleTabs(self)
     local activeTab = nil
 
