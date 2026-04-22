@@ -725,7 +725,7 @@ local BUTTON_HEIGHT = 18
 local CORNER_RADIUS = 4
 local FONT = Enum.Font.Gotham
 local FONT_SIZE = 11
-local OPTICAL_CENTER_OFFSET_X = 1
+local OPTICAL_CENTER_OFFSET_Y = 1
 local PADDING_X = 8
 
 local LIVE_PROPERTIES = {
@@ -827,11 +827,10 @@ local function createKeyPicker(parent)
 
     local label = Instance.new("TextLabel")
     label.Name = "Label"
-    label.AnchorPoint = Vector2.new(0.5, 0.5)
     label.BackgroundTransparency = 1
     label.BorderSizePixel = 0
     label.Font = FONT
-    label.Position = UDim2.new(0.5, OPTICAL_CENTER_OFFSET_X, 0.5, 0)
+    label.Position = UDim2.fromOffset(0, OPTICAL_CENTER_OFFSET_Y)
     label.Size = UDim2.new(1, 0, 1, 0)
     label.TextColor3 = Theme["text-secondary"]
     label.TextSize = FONT_SIZE
