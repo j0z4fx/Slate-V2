@@ -4,7 +4,7 @@ UI library source lives in `src/`.
 
 Loader:
 ```lua
-local Slate = loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/j0z4fx/Slate-V2@fda9fcb/loader.lua"))()
+local Slate = loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/j0z4fx/Slate-V2@main/loader.lua"))()
 ```
 
 Current API:
@@ -27,6 +27,20 @@ window:Set({
     Height = 500,
     ShowSidebar = false,
 })
+
+local homeTab = window:AddTab({
+    Title = "Home",
+    Icon = "house",
+    Active = true,
+})
+
+local profileTab = window:AddTab({
+    Title = "Profile",
+    Icon = "user-round",
+})
+
+profileTab.Icon = "settings"
+homeTab.Active = true
 ```
 
 Destroy:

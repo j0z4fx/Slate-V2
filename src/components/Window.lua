@@ -1,4 +1,5 @@
 local Theme = require(script.Parent.Parent.theme.Theme)
+local Tab = require(script.Parent.Tab)
 local UserInputService = game:GetService("UserInputService")
 
 local Window = {}
@@ -100,6 +101,10 @@ local function createTextLabel(name, font, textSize, textColor, zIndex)
     label.ZIndex = zIndex
 
     return label
+end
+
+local function setInternal(self, key, value)
+    rawset(self, key, value)
 end
 
 local function createCursor(frame: Frame)
@@ -235,9 +240,37 @@ local function createSidebar(frame: Frame)
     sidebarStroke.Thickness = SIDEBAR_STROKE
     sidebarStroke.Parent = sidebar
 
+    local sidebarTabs = Instance.new("Frame")
+    sidebarTabs.Name = "Tabs"
+    sidebarTabs.BackgroundTransparency = 1
+    sidebarTabs.BorderSizePixel = 0
+    sidebarTabs.Size = UDim2.fromScale(1, 1)
+    sidebarTabs.ZIndex = sidebar.ZIndex + 1
+    sidebarTabs:SetAttribute("SlateComponent", "SidebarTabs")
+    sidebarTabs.Parent = sidebar
+
+    local tabsLayout = Instance.new("UIListLayout")
+    tabsLayout.FillDirection = Enum.FillDirection.Vertical
+    tabsLayout.Padding = UDim.new(0, 0)
+    tabsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    tabsLayout.Parent = sidebarTabs
+
+    local content = Instance.new("Frame")
+    content.Name = "Content"
+    content.BackgroundTransparency = 1
+    content.BorderSizePixel = 0
+    content.Position = UDim2.fromOffset(DEFAULTS.SidebarWidth, TITLE_BAR_HEIGHT)
+    content.Size = UDim2.new(1, -DEFAULTS.SidebarWidth, 1, -TITLE_BAR_HEIGHT)
+    content.ZIndex = frame.ZIndex
+    content:SetAttribute("SlateComponent", "Content")
+    content.Parent = frame
+
     return {
         sidebar = sidebar,
         sidebarStroke = sidebarStroke,
+        sidebarTabs = sidebarTabs,
+        tabsLayout = tabsLayout,
+        content = content,
     }
 end
 
@@ -258,7 +291,7 @@ local function updateCursorPosition(self, mouseLocation)
 end
 
 local function setCursorVisible(self, isVisible)
-    self._cursorVisible = isVisible
+    setInternal(self, "_cursorVisible", isVisible)
     self._refs.cursor.Visible = isVisible
     UserInputService.MouseIconEnabled = not isVisible
 
@@ -283,15 +316,9 @@ local function attachInteractions(self)
             return
         end
 
-        self._dragging = true
-        self._dragStart = input.Position
-        self._dragOrigin = self.Instance.Position
-    end)
-
-    connect(self, refs.titleBar.InputEnded, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            self._dragging = false
-        end
+        setInternal(self, "_dragging", true)
+        setInternal(self, "_dragStart", input.Position)
+        setInternal(self, "_dragOrigin", self.Instance.Position)
     end)
 
     connect(self, UserInputService.InputChanged, function(input)
@@ -317,6 +344,32 @@ local function attachInteractions(self)
             origin.Y.Offset + delta.Y
         )
     end)
+
+    connect(self, UserInputService.InputEnded, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            setInternal(self, "_dragging", false)
+        end
+    end)
+end
+
+local function getVisibleTabs(self)
+    local visibleTabs = {}
+
+    for _, tab in ipairs(self._tabs) do
+        if not tab._destroyed and tab.Visible then
+            table.insert(visibleTabs, tab)
+        end
+    end
+
+    table.sort(visibleTabs, function(left, right)
+        if left.Order == right.Order then
+            return left.Title < right.Title
+        end
+
+        return left.Order < right.Order
+    end)
+
+    return visibleTabs
 end
 
 local function applyMetadata(self)
@@ -348,8 +401,14 @@ local function applyMetadata(self)
     refs.sidebar.Visible = state.ShowSidebar
     refs.sidebarStroke.Color = Theme["nav-stroke"]
     refs.sidebarStroke.Thickness = SIDEBAR_STROKE
+    refs.content.Position = UDim2.fromOffset(state.ShowSidebar and state.SidebarWidth or 0, TITLE_BAR_HEIGHT)
+    refs.content.Size = UDim2.new(1, -(state.ShowSidebar and state.SidebarWidth or 0), 1, -TITLE_BAR_HEIGHT)
     refs.cursorHorizontal.BackgroundColor3 = Theme.accent
     refs.cursorVertical.BackgroundColor3 = Theme.accent
+
+    for _, tab in ipairs(self._tabs) do
+        Tab._applyMetadata(tab)
+    end
 end
 
 local function createState(config)
@@ -462,12 +521,14 @@ function Window.new(parent: Instance, config)
     local self = setmetatable({
         Instance = frame,
         Parent = parent,
+        Tabs = {},
         _connections = {},
         _cursorVisible = false,
         _dragging = false,
         _destroyed = false,
         _refs = refs,
         _state = createState(config),
+        _tabs = {},
     }, WindowMeta)
 
     applyMetadata(self)
@@ -534,14 +595,90 @@ function Window:SetSize(size)
     return self:Set("Size", size)
 end
 
+function Window:AddTab(config)
+    local tabConfig = config or {}
+    local tab = Tab.new(self, tabConfig, #self._tabs + 1)
+
+    table.insert(self._tabs, tab)
+    self.Tabs[tab.Title] = tab
+    self:_reconcileTabs(tabConfig.Active and tab or nil)
+
+    return tab
+end
+
+function Window:SelectTab(tab)
+    if self._destroyed or tab._destroyed then
+        return self
+    end
+
+    for _, candidate in ipairs(self._tabs) do
+        candidate._state.Active = candidate == tab and candidate.Visible
+    end
+
+    applyMetadata(self)
+
+    return self
+end
+
+function Window:_reconcileTabs(preferredTab)
+    local visibleTabs = getVisibleTabs(self)
+    local activeTab = nil
+
+    for _, tab in ipairs(self._tabs) do
+        if tab.Active and tab.Visible and not tab._destroyed then
+            activeTab = tab
+            break
+        end
+    end
+
+    if preferredTab and preferredTab.Visible and not preferredTab._destroyed then
+        activeTab = preferredTab
+    end
+
+    if not activeTab then
+        activeTab = visibleTabs[1]
+    end
+
+    self.Tabs = {}
+
+    for _, tab in ipairs(self._tabs) do
+        tab._state.Active = activeTab ~= nil and tab == activeTab
+        self.Tabs[tab.Title] = tab
+    end
+
+    applyMetadata(self)
+end
+
+function Window:_removeTab(tab)
+    local nextTabs = {}
+
+    for _, candidate in ipairs(self._tabs) do
+        if candidate ~= tab then
+            table.insert(nextTabs, candidate)
+        end
+    end
+
+    self.Tabs[tab.Title] = nil
+    self._tabs = nextTabs
+    self:_reconcileTabs(nil)
+end
+
 function Window:Destroy()
     if self._destroyed then
         return
     end
 
-    self._destroyed = true
-    self._dragging = false
+    setInternal(self, "_destroyed", true)
+    setInternal(self, "_dragging", false)
     setCursorVisible(self, false)
+
+    local tabs = table.clone(self._tabs)
+    for _, tab in ipairs(tabs) do
+        tab:Destroy()
+    end
+
+    self._tabs = {}
+    self.Tabs = {}
 
     for _, connection in ipairs(self._connections) do
         connection:Disconnect()
