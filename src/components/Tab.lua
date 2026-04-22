@@ -249,6 +249,10 @@ end
 local function applyMetadata(self)
     local refs = self._refs
     local state = self._state
+    if not refs or not refs.button or not refs.page or not state then
+        return
+    end
+
     local isActive = state.Active and state.Visible
     local window = self.Window
     local boot = window and window._boot
