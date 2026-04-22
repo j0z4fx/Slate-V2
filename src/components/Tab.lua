@@ -175,8 +175,10 @@ local function createPageLayout(page, columnCount)
 
     local layout = Instance.new("UIListLayout")
     layout.FillDirection = Enum.FillDirection.Horizontal
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
     layout.Padding = UDim.new(0, COLUMN_GAP)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.VerticalAlignment = Enum.VerticalAlignment.Top
     layout.Parent = tabContent
 
     local sizeOffset = -math.floor(((columnCount - 1) * COLUMN_GAP) / columnCount)
@@ -184,17 +186,21 @@ local function createPageLayout(page, columnCount)
     local function makeColumn(name, order)
         local container = Instance.new("Frame")
         container.Name = name
+        container.AnchorPoint = Vector2.zero
         container.BackgroundTransparency = 1
         container.BorderSizePixel = 0
         container.LayoutOrder = order
+        container.Position = UDim2.new()
         container.Size = UDim2.new(1 / columnCount, sizeOffset, 1, 0)
         container.ZIndex = tabContent.ZIndex + 1
         container.Parent = tabContent
 
         local content = Instance.new("Frame")
         content.Name = "Content"
+        content.AnchorPoint = Vector2.zero
         content.BackgroundTransparency = 1
         content.BorderSizePixel = 0
+        content.Position = UDim2.new()
         content.Size = UDim2.fromScale(1, 1)
         content.ZIndex = container.ZIndex
         content.Parent = container
@@ -244,9 +250,10 @@ local function applyMetadata(self)
     local refs = self._refs
     local state = self._state
     local isActive = state.Active and state.Visible
+    local boot = self.Window._boot
 
     refs.button.LayoutOrder = state.Order
-    refs.button.Visible = state.Visible
+    refs.button.Visible = state.Visible and ((not boot.active) or self._bootVisible)
     refs.button:SetAttribute("Title", state.Title)
     refs.button:SetAttribute("Icon", state.Icon)
     refs.button:SetAttribute("Active", isActive)
@@ -261,7 +268,7 @@ local function applyMetadata(self)
     refs.icon.ImageColor3 = isActive and Theme.accent or Theme["text-secondary"]
     refs.icon.ImageTransparency = isActive and ACTIVE_ICON_TRANSPARENCY or 0
 
-    refs.page.Visible = isActive
+    refs.page.Visible = isActive and ((not boot.active) or boot.contentVisible)
 end
 
 local function applyProperty(self, property, value)
@@ -288,6 +295,7 @@ function Tab.new(window, config, order)
         leftColumn = refs.leftColumn,
         middleColumn = refs.middleColumn,
         rightColumn = refs.rightColumn,
+        _bootVisible = not window._boot.active,
         _destroyed = false,
         _groupboxes = {},
         _refs = refs,

@@ -26,6 +26,26 @@ local FADE_HEIGHT = 20
 local GROUPBOX_DRAG_PLACEHOLDER_INSET = 7
 local GROUPBOX_DRAG_ZINDEX_OFFSET = 100
 local GROUPBOX_DRAG_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local LOADER_BASE_PROGRESS = 0.2
+local LOADER_COMPACT_SCALE = 0.5
+local LOADER_MIN_WIDTH = 320
+local LOADER_MIN_HEIGHT = 180
+local LOADER_TRACK_HEIGHT = 2
+local LOADER_BAR_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local LOADER_PANEL_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local WINDOW_BOOT_EXPAND_TWEEN_INFO = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local WINDOW_BOOT_TITLE_TWEEN_INFO = TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local WINDOW_BOOT_SIDEBAR_TWEEN_INFO = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local WINDOW_BOOT_TAB_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local WINDOW_BOOT_CONTENT_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local WINDOW_BOOT_TAB_STAGGER = 0.055
+local DEFAULT_LOADER_STATUS = "Initializing Slate..."
+local TRANSPARENCY_PROPERTIES = {
+    "BackgroundTransparency",
+    "ImageTransparency",
+    "TextStrokeTransparency",
+    "TextTransparency",
+}
 
 local DEFAULTS = {
     Title = "Slate",
@@ -128,6 +148,95 @@ local function safeDisconnect(connection)
     end
 end
 
+local function waitForTween(tween)
+    tween:Play()
+    return tween.Completed:Wait()
+end
+
+local function getCompactSize(size)
+    return UDim2.new(
+        size.X.Scale,
+        math.max(LOADER_MIN_WIDTH, math.floor(size.X.Offset * LOADER_COMPACT_SCALE)),
+        size.Y.Scale,
+        math.max(LOADER_MIN_HEIGHT, math.floor(size.Y.Offset * LOADER_COMPACT_SCALE))
+    )
+end
+
+local function captureTransparencyState(root)
+    local state = {}
+    local instances = { root }
+
+    for _, descendant in ipairs(root:GetDescendants()) do
+        table.insert(instances, descendant)
+    end
+
+    for _, instance in ipairs(instances) do
+        local properties = {}
+
+        for _, property in ipairs(TRANSPARENCY_PROPERTIES) do
+            local ok, value = pcall(function()
+                return instance[property]
+            end)
+
+            if ok then
+                properties[property] = value
+            end
+        end
+
+        if instance:IsA("UIStroke") then
+            properties.Transparency = instance.Transparency
+        end
+
+        if next(properties) ~= nil then
+            state[instance] = properties
+        end
+    end
+
+    return state
+end
+
+local function applyTransparencyAlpha(state, alpha)
+    for instance, properties in pairs(state) do
+        if instance.Parent ~= nil then
+            for property, value in pairs(properties) do
+                instance[property] = value + ((1 - value) * alpha)
+            end
+        end
+    end
+end
+
+local function tweenTransparencyAlpha(state, fromAlpha, toAlpha, tweenInfo)
+    local driver = Instance.new("NumberValue")
+    driver.Value = fromAlpha
+
+    local connection = driver:GetPropertyChangedSignal("Value"):Connect(function()
+        applyTransparencyAlpha(state, driver.Value)
+    end)
+
+    applyTransparencyAlpha(state, fromAlpha)
+
+    local tween = TweenService:Create(driver, tweenInfo, {
+        Value = toAlpha,
+    })
+
+    local playbackState = waitForTween(tween)
+    connection:Disconnect()
+    driver:Destroy()
+    applyTransparencyAlpha(state, toAlpha)
+
+    return playbackState
+end
+
+local function getActiveTab(self)
+    for _, tab in ipairs(self._tabs) do
+        if not tab._destroyed and tab.Active and tab.Visible then
+            return tab
+        end
+    end
+
+    return nil
+end
+
 local function createCursor(frame: Frame)
     local cursor = Instance.new("Frame")
     cursor.Name = "Cursor"
@@ -164,6 +273,69 @@ local function createCursor(frame: Frame)
         cursor = cursor,
         cursorHorizontal = horizontal,
         cursorVertical = vertical,
+    }
+end
+
+local function createLoader(frame: Frame)
+    local overlay = Instance.new("Frame")
+    overlay.Name = "LoaderOverlay"
+    overlay.BackgroundTransparency = 1
+    overlay.BorderSizePixel = 0
+    overlay.Size = UDim2.fromScale(1, 1)
+    overlay.ZIndex = frame.ZIndex + 10
+    overlay:SetAttribute("SlateComponent", "LoaderOverlay")
+    overlay.Parent = frame
+
+    local panel = Instance.new("Frame")
+    panel.Name = "LoaderPanel"
+    panel.AnchorPoint = Vector2.new(0.5, 0.5)
+    panel.BackgroundTransparency = 1
+    panel.BorderSizePixel = 0
+    panel.Position = UDim2.fromScale(0.5, 0.5)
+    panel.Size = UDim2.new(1, -72, 0, 86)
+    panel.ZIndex = overlay.ZIndex + 1
+    panel.Parent = overlay
+
+    local track = Instance.new("Frame")
+    track.Name = "Track"
+    track.BackgroundColor3 = Theme["nav-stroke"]
+    track.BackgroundTransparency = 0.3
+    track.BorderSizePixel = 0
+    track.Position = UDim2.fromOffset(0, 8)
+    track.Size = UDim2.new(1, 0, 0, LOADER_TRACK_HEIGHT)
+    track.ZIndex = panel.ZIndex
+    track.Parent = panel
+
+    local fill = Instance.new("Frame")
+    fill.Name = "Fill"
+    fill.BackgroundColor3 = Theme.accent
+    fill.BorderSizePixel = 0
+    fill.Size = UDim2.new(0, 0, 1, 0)
+    fill.ZIndex = track.ZIndex + 1
+    fill.Parent = track
+
+    local statusLabel = createTextLabel("StatusLabel", Enum.Font.Gotham, 16, Theme["text-secondary"], panel.ZIndex)
+    statusLabel.AnchorPoint = Vector2.new(0, 0.5)
+    statusLabel.Position = UDim2.new(0, 0, 0, 46)
+    statusLabel.Size = UDim2.new(1, -64, 0, 22)
+    statusLabel.Text = DEFAULT_LOADER_STATUS
+    statusLabel.Parent = panel
+
+    local percentLabel = createTextLabel("PercentLabel", Enum.Font.GothamMedium, 16, Theme.accent, panel.ZIndex)
+    percentLabel.AnchorPoint = Vector2.new(1, 0.5)
+    percentLabel.Position = UDim2.new(1, 0, 0, 46)
+    percentLabel.Size = UDim2.fromOffset(60, 22)
+    percentLabel.Text = "0%"
+    percentLabel.TextXAlignment = Enum.TextXAlignment.Right
+    percentLabel.Parent = panel
+
+    return {
+        loaderOverlay = overlay,
+        loaderPanel = panel,
+        loaderTrack = track,
+        loaderFill = fill,
+        loaderStatus = statusLabel,
+        loaderPercent = percentLabel,
     }
 end
 
@@ -299,6 +471,27 @@ local function createSidebar(frame: Frame)
         sidebarTabs = sidebarTabs,
         tabsLayout = tabsLayout,
         content = content,
+    }
+end
+
+local function createBootState(windowSize)
+    return {
+        active = true,
+        autoFinishScheduled = false,
+        compactSize = getCompactSize(windowSize),
+        contentVisible = false,
+        deferredBoot = false,
+        loaderFillTween = nil,
+        loaderVisible = true,
+        progress = 0,
+        revealStarted = false,
+        sidebarVisible = false,
+        statusText = DEFAULT_LOADER_STATUS,
+        tabsVisible = false,
+        titleBarVisible = false,
+        totalUserWeight = 0,
+        userProgress = 0,
+        userStepCount = 0,
     }
 end
 
@@ -732,11 +925,175 @@ local function bindGroupboxDragging(self, groupbox)
     self._groupboxConnections[groupbox] = connection
 end
 
+local function computeLoaderProgress(self)
+    local boot = self._boot
+
+    if boot.totalUserWeight <= 0 then
+        return LOADER_BASE_PROGRESS
+    end
+
+    return LOADER_BASE_PROGRESS + (math.clamp(boot.userProgress / boot.totalUserWeight, 0, 1) * (1 - LOADER_BASE_PROGRESS))
+end
+
+local function setLoaderProgress(self, progress, text, instant)
+    local boot = self._boot
+    local refs = self._refs
+    local nextProgress = math.clamp(progress, 0, 1)
+
+    boot.progress = nextProgress
+
+    if text ~= nil then
+        boot.statusText = tostring(text)
+    end
+
+    refs.loaderStatus.Text = boot.statusText
+    refs.loaderPercent.Text = string.format("%d%%", math.floor((nextProgress * 100) + 0.5))
+
+    if boot.loaderFillTween then
+        boot.loaderFillTween:Cancel()
+        boot.loaderFillTween = nil
+    end
+
+    if instant then
+        refs.loaderFill.Size = UDim2.new(nextProgress, 0, 1, 0)
+        return
+    end
+
+    local tween = TweenService:Create(refs.loaderFill, LOADER_BAR_TWEEN_INFO, {
+        Size = UDim2.new(nextProgress, 0, 1, 0),
+    })
+
+    boot.loaderFillTween = tween
+    tween.Completed:Connect(function()
+        if boot.loaderFillTween == tween then
+            boot.loaderFillTween = nil
+        end
+    end)
+    tween:Play()
+end
+
+local function scheduleAutoFinish(self)
+    local boot = self._boot
+    if boot.autoFinishScheduled then
+        return
+    end
+
+    boot.autoFinishScheduled = true
+    task.defer(function()
+        boot.autoFinishScheduled = false
+
+        if self._destroyed or not boot.active or boot.revealStarted then
+            return
+        end
+
+        if boot.userStepCount == 0 or boot.userProgress >= boot.totalUserWeight then
+            self:FinishLoading()
+        end
+    end)
+end
+
+local function hideLoaderOverlay(self)
+    local boot = self._boot
+    local refs = self._refs
+
+    if not refs.loaderOverlay.Visible then
+        return
+    end
+
+    local state = captureTransparencyState(refs.loaderOverlay)
+    local playbackState = tweenTransparencyAlpha(state, 0, 1, LOADER_PANEL_TWEEN_INFO)
+
+    if playbackState == Enum.PlaybackState.Completed and refs.loaderOverlay.Parent ~= nil then
+        refs.loaderOverlay.Visible = false
+        boot.loaderVisible = false
+        applyTransparencyAlpha(state, 0)
+    end
+end
+
+local function revealTabs(self)
+    local visibleTabs = getVisibleTabs(self)
+
+    for _, tab in ipairs(visibleTabs) do
+        local button = tab._refs.button
+        local state = captureTransparencyState(button)
+
+        tab._bootVisible = true
+        button.Size = UDim2.new(1, 0, 0, 0)
+        button.Visible = true
+        applyTransparencyAlpha(state, 1)
+
+        local sizeTween = TweenService:Create(button, WINDOW_BOOT_TAB_TWEEN_INFO, {
+            Size = UDim2.new(1, 0, 0, 48),
+        })
+
+        sizeTween:Play()
+        tweenTransparencyAlpha(state, 1, 0, WINDOW_BOOT_TAB_TWEEN_INFO)
+        task.wait(WINDOW_BOOT_TAB_STAGGER)
+    end
+end
+
+local function revealActivePage(self)
+    local activeTab = getActiveTab(self)
+    if not activeTab then
+        return
+    end
+
+    self._boot.contentVisible = true
+    applyMetadata(self)
+
+    if not activeTab.Page.Visible then
+        return
+    end
+
+    local state = captureTransparencyState(activeTab.Page)
+    applyTransparencyAlpha(state, 1)
+    tweenTransparencyAlpha(state, 1, 0, WINDOW_BOOT_CONTENT_TWEEN_INFO)
+end
+
+local function playBootReveal(self)
+    local boot = self._boot
+    local refs = self._refs
+    local state = self._state
+
+    waitForTween(TweenService:Create(self.Instance, WINDOW_BOOT_EXPAND_TWEEN_INFO, {
+        Size = state.Size,
+    }))
+
+    boot.active = false
+    boot.compactSize = getCompactSize(state.Size)
+    hideLoaderOverlay(self)
+
+    boot.titleBarVisible = true
+    refs.titleBar.Visible = true
+    refs.titleBar.Position = UDim2.fromOffset(0, -TITLE_BAR_HEIGHT)
+    applyMetadata(self)
+    waitForTween(TweenService:Create(refs.titleBar, WINDOW_BOOT_TITLE_TWEEN_INFO, {
+        Position = UDim2.fromOffset(0, 0),
+    }))
+
+    if state.ShowSidebar then
+        boot.sidebarVisible = true
+        refs.sidebar.Visible = true
+        refs.sidebar.Position = UDim2.fromOffset(-state.SidebarWidth, TITLE_BAR_HEIGHT)
+        applyMetadata(self)
+        waitForTween(TweenService:Create(refs.sidebar, WINDOW_BOOT_SIDEBAR_TWEEN_INFO, {
+            Position = UDim2.fromOffset(0, TITLE_BAR_HEIGHT),
+        }))
+    end
+
+    boot.tabsVisible = true
+    applyMetadata(self)
+    revealTabs(self)
+    revealActivePage(self)
+end
+
 local function applyMetadata(self)
     local state = self._state
     local refs = self._refs
+    local boot = self._boot
+    local renderSize = boot.active and boot.compactSize or state.Size
 
-    self.Instance.Size = state.Size
+    self.Instance.Size = renderSize
     self.Instance.Visible = state.Visible
     self.Instance:SetAttribute("Title", state.Title)
     self.Instance:SetAttribute("Version", state.Version)
@@ -755,6 +1112,11 @@ local function applyMetadata(self)
     refs.accentChip.BackgroundColor3 = Theme.accent
     refs.accentChip.BackgroundTransparency = 0.84
     refs.accentLabel.TextColor3 = Theme.accent
+    refs.loaderTrack.BackgroundColor3 = Theme["nav-stroke"]
+    refs.loaderFill.BackgroundColor3 = Theme.accent
+    refs.loaderStatus.TextColor3 = Theme["text-secondary"]
+    refs.loaderPercent.TextColor3 = Theme.accent
+    refs.loaderOverlay.Visible = boot.loaderVisible
 
     local activeTabTitle = "Slate"
     for _, tab in ipairs(self._tabs) do
@@ -778,13 +1140,15 @@ local function applyMetadata(self)
     end
     refs.sidebar.BackgroundColor3 = Theme["nav-bg"]
     refs.sidebar.Size = UDim2.new(0, state.SidebarWidth, 1, -TITLE_BAR_HEIGHT)
-    refs.sidebar.Visible = state.ShowSidebar
+    refs.sidebar.Visible = state.ShowSidebar and boot.sidebarVisible
     refs.sidebarStroke.Color = Theme["nav-stroke"]
     refs.sidebarStroke.Thickness = SIDEBAR_STROKE
     refs.content.Position = UDim2.fromOffset(state.ShowSidebar and state.SidebarWidth or 0, TITLE_BAR_HEIGHT)
     refs.content.Size = UDim2.new(1, -(state.ShowSidebar and state.SidebarWidth or 0), 1, -TITLE_BAR_HEIGHT)
+    refs.content.Visible = boot.contentVisible
     refs.cursorHorizontal.BackgroundColor3 = Theme.accent
     refs.cursorVertical.BackgroundColor3 = Theme.accent
+    refs.titleBar.Visible = boot.titleBarVisible
 
     for _, tab in ipairs(self._tabs) do
         Tab._applyMetadata(tab)
@@ -821,6 +1185,10 @@ local function setSize(self, size)
         state.Width = size.X.Offset
         state.Height = size.Y.Offset
 
+        if self._boot and self._boot.active then
+            self._boot.compactSize = getCompactSize(state.Size)
+        end
+
         return
     end
 
@@ -830,6 +1198,10 @@ local function setSize(self, size)
     state.Width = width
     state.Height = height
     state.Size = UDim2.fromOffset(width, height)
+
+    if self._boot and self._boot.active then
+        self._boot.compactSize = getCompactSize(state.Size)
+    end
 end
 
 local function updateWidth(self, width)
@@ -837,6 +1209,10 @@ local function updateWidth(self, width)
 
     state.Width = width
     state.Size = UDim2.new(state.Size.X.Scale, width, state.Size.Y.Scale, state.Size.Y.Offset)
+
+    if self._boot and self._boot.active then
+        self._boot.compactSize = getCompactSize(state.Size)
+    end
 end
 
 local function updateHeight(self, height)
@@ -844,6 +1220,10 @@ local function updateHeight(self, height)
 
     state.Height = height
     state.Size = UDim2.new(state.Size.X.Scale, state.Size.X.Offset, state.Size.Y.Scale, height)
+
+    if self._boot and self._boot.active then
+        self._boot.compactSize = getCompactSize(state.Size)
+    end
 end
 
 local function applyProperty(self, property, value)
@@ -878,6 +1258,7 @@ local function applyProperty(self, property, value)
 end
 
 function Window.new(parent: Instance, config)
+    local state = createState(config)
     local frame = Instance.new("Frame")
     frame.Name = "Window"
     frame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -892,6 +1273,9 @@ function Window.new(parent: Instance, config)
 
     local refs = createTitleBar(frame)
     for key, value in pairs(createSidebar(frame)) do
+        refs[key] = value
+    end
+    for key, value in pairs(createLoader(frame)) do
         refs[key] = value
     end
     for key, value in pairs(createCursor(frame)) do
@@ -921,12 +1305,14 @@ function Window.new(parent: Instance, config)
             tab = nil,
             targetColumn = nil,
         },
+        _boot = createBootState(state.Size),
         _refs = refs,
-        _state = createState(config),
+        _state = state,
         _tabs = {},
     }, WindowMeta)
 
     applyMetadata(self)
+    setLoaderProgress(self, 0.08, "Preparing Slate...", true)
     attachInteractions(self)
     Window.AddTab(self, {
         Title = "Settings",
@@ -934,6 +1320,8 @@ function Window.new(parent: Instance, config)
         LayoutColumns = 2,
         Order = 9999,
     })
+    setLoaderProgress(self, LOADER_BASE_PROGRESS, "Slate ready", false)
+    scheduleAutoFinish(self)
 
     return self
 end
@@ -994,6 +1382,94 @@ end
 
 function Window:SetSize(size)
     return self:Set("Size", size)
+end
+
+function Window:SetLoaderStatus(text)
+    if self._destroyed or not self._boot.active then
+        return self
+    end
+
+    setLoaderProgress(self, self._boot.progress, text, true)
+
+    return self
+end
+
+function Window:QueueLoadStep(configOrText, weight)
+    if self._destroyed or not self._boot.active then
+        return nil
+    end
+
+    local config
+    if type(configOrText) == "table" then
+        config = configOrText
+    else
+        config = {
+            Text = configOrText,
+            Weight = weight,
+        }
+    end
+
+    local step = {
+        Completed = false,
+        Text = tostring(config.Text or "Loading..."),
+        Weight = math.max(tonumber(config.Weight) or 1, 0.01),
+    }
+
+    self._boot.userStepCount += 1
+    self._boot.totalUserWeight += step.Weight
+    setLoaderProgress(self, computeLoaderProgress(self), step.Text, true)
+
+    return {
+        Complete = function(_, text)
+            if self._destroyed or step.Completed then
+                return self
+            end
+
+            step.Completed = true
+            self._boot.userProgress += step.Weight
+            setLoaderProgress(self, computeLoaderProgress(self), text or step.Text, false)
+
+            if self._boot.userProgress >= self._boot.totalUserWeight then
+                self:FinishLoading()
+            end
+
+            return self
+        end,
+        SetStatus = function(_, text)
+            if self._destroyed or step.Completed then
+                return self
+            end
+
+            step.Text = tostring(text or step.Text)
+            self:SetLoaderStatus(step.Text)
+
+            return self
+        end,
+    }
+end
+
+function Window:FinishLoading(text)
+    if self._destroyed or not self._boot.active or self._boot.revealStarted then
+        return self
+    end
+
+    self._boot.revealStarted = true
+    setLoaderProgress(self, 1, text or "Ready", false)
+
+    task.spawn(function()
+        if self._destroyed then
+            return
+        end
+
+        task.wait(0.08)
+        if self._destroyed then
+            return
+        end
+
+        playBootReveal(self)
+    end)
+
+    return self
 end
 
 function Window:AddTab(config)

@@ -13,15 +13,23 @@ local TITLE_COLOR = Color3.fromRGB(94, 94, 126)
 local CORNER_RADIUS = 6
 local STROKE_THICKNESS = 1
 local CONTENT_GAP = 6
+local GROUPBOX_ROOT_SIZE = UDim2.new(1, 0, 0, 0)
+local GROUPBOX_ROOT_POSITION = UDim2.new()
+
+local function applyRootLayout(frame)
+    frame.AnchorPoint = Vector2.zero
+    frame.AutomaticSize = Enum.AutomaticSize.Y
+    frame.Position = GROUPBOX_ROOT_POSITION
+    frame.Size = GROUPBOX_ROOT_SIZE
+end
 
 local function createGroupbox(parent)
     local frame = Instance.new("Frame")
     frame.Name = "Groupbox"
-    frame.AutomaticSize = Enum.AutomaticSize.Y
     frame.BackgroundColor3 = Theme.surface
     frame.BorderSizePixel = 0
-    frame.Size = UDim2.new(1, 0, 0, 0)
     frame:SetAttribute("SlateComponent", "Groupbox")
+    applyRootLayout(frame)
     frame.Parent = parent
 
     local corner = Instance.new("UICorner")
@@ -142,6 +150,12 @@ function Groupbox.new(parent, config)
     return self
 end
 
+function Groupbox:_syncLayout()
+    applyRootLayout(self.Instance)
+
+    return self
+end
+
 function Groupbox:AddToggle(configOrText, config)
     local toggleConfig
 
@@ -201,6 +215,7 @@ function Groupbox:SetPlacement(column, layoutOrder)
     self.Column = column
     self.LayoutOrder = layoutOrder
     self.Instance.LayoutOrder = layoutOrder
+    self:_syncLayout()
 
     return self
 end
