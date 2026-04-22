@@ -195,7 +195,7 @@ local function findWindowRoot(instance)
     local current = instance
 
     while current do
-        if current:GetAttribute and current:GetAttribute("SlateComponent") == "Window" then
+        if current.GetAttribute and current:GetAttribute("SlateComponent") == "Window" then
             return current
         end
 
