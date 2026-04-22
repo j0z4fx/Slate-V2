@@ -818,11 +818,12 @@ local function createKeyPicker(parent)
 
     local label = Instance.new("TextLabel")
     label.Name = "Label"
-    label.AutomaticSize = Enum.AutomaticSize.X
+    label.AnchorPoint = Vector2.new(0.5, 0.5)
     label.BackgroundTransparency = 1
     label.BorderSizePixel = 0
     label.Font = Enum.Font.Gotham
-    label.Size = UDim2.new(0, 0, 0, BUTTON_HEIGHT)
+    label.Position = UDim2.fromScale(0.5, 0.5)
+    label.Size = UDim2.new(1, 0, 1, 0)
     label.TextColor3 = Theme["text-secondary"]
     label.TextSize = 11
     label.TextXAlignment = Enum.TextXAlignment.Center
@@ -2462,10 +2463,10 @@ local LOADER_MIN_WIDTH = 320
 local LOADER_MIN_HEIGHT = 135
 local LOADER_FINAL_HOLD = 1
 local LOADER_TRACK_HEIGHT = 3
-local LOADER_PANEL_HEIGHT = 60
+local LOADER_PANEL_HEIGHT = 54
 local LOADER_PANEL_HORIZONTAL_INSET = 56
 local LOADER_TRACK_TOP = 8
-local LOADER_LABEL_CENTER_Y = 30
+local LOADER_LABEL_CENTER_Y = 27
 local LOADER_BAR_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local LOADER_PANEL_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local WINDOW_BOOT_EXPAND_TWEEN_INFO = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -3513,18 +3514,12 @@ local function revealActivePage(self)
         return
     end
 
-    local pageState = captureTransparencyState(activeTab.Page)
     local groupboxStates = {}
 
     for _, groupbox in ipairs(activeTab._groupboxes or {}) do
         if not groupbox._destroyed and groupbox.Instance and groupbox.Instance.Parent ~= nil then
             table.insert(groupboxStates, captureTransparencyState(groupbox.Instance))
         end
-    end
-
-    applyTransparencyAlpha(pageState, 1)
-    for _, groupboxState in ipairs(groupboxStates) do
-        applyTransparencyAlpha(groupboxState, 1)
     end
 
     self._boot.contentVisible = true
@@ -3534,7 +3529,10 @@ local function revealActivePage(self)
         return
     end
 
-    tweenTransparencyAlpha(pageState, 1, 0, WINDOW_BOOT_CONTENT_TWEEN_INFO, false)
+    for _, groupboxState in ipairs(groupboxStates) do
+        applyTransparencyAlpha(groupboxState, 1)
+    end
+
     for _, groupboxState in ipairs(groupboxStates) do
         tweenTransparencyAlpha(groupboxState, 1, 0, WINDOW_BOOT_CONTENT_TWEEN_INFO, false)
     end

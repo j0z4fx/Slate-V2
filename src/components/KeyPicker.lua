@@ -102,11 +102,12 @@ local function createKeyPicker(parent)
 
     local label = Instance.new("TextLabel")
     label.Name = "Label"
-    label.AutomaticSize = Enum.AutomaticSize.X
+    label.AnchorPoint = Vector2.new(0.5, 0.5)
     label.BackgroundTransparency = 1
     label.BorderSizePixel = 0
     label.Font = Enum.Font.Gotham
-    label.Size = UDim2.new(0, 0, 0, BUTTON_HEIGHT)
+    label.Position = UDim2.fromScale(0.5, 0.5)
+    label.Size = UDim2.new(1, 0, 1, 0)
     label.TextColor3 = Theme["text-secondary"]
     label.TextSize = 11
     label.TextXAlignment = Enum.TextXAlignment.Center
