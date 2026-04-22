@@ -22,6 +22,7 @@ local DEFAULT_SIDEBAR_WIDTH = math.floor((48 * 1.15) + 0.5)
 local COLUMN_GAP = 8
 local COLUMN_OFFSET = -math.floor(2 * COLUMN_GAP / 3)
 local CONTENT_PADDING = 6
+local WINDOW_CORNER_RADIUS = 6
 local FADE_HEIGHT = 20
 local GROUPBOX_DRAG_PLACEHOLDER_INSET = 7
 local GROUPBOX_DRAG_ZINDEX_OFFSET = 100
@@ -32,7 +33,11 @@ local LOADER_COMPACT_HEIGHT_SCALE = 0.25
 local LOADER_MIN_WIDTH = 320
 local LOADER_MIN_HEIGHT = 135
 local LOADER_FINAL_HOLD = 1
-local LOADER_TRACK_HEIGHT = 2
+local LOADER_TRACK_HEIGHT = 3
+local LOADER_PANEL_HEIGHT = 68
+local LOADER_PANEL_HORIZONTAL_INSET = 56
+local LOADER_TRACK_TOP = 8
+local LOADER_LABEL_CENTER_Y = 34
 local LOADER_BAR_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local LOADER_PANEL_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local WINDOW_BOOT_EXPAND_TWEEN_INFO = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -297,19 +302,27 @@ local function createLoader(frame: Frame)
     panel.BackgroundTransparency = 1
     panel.BorderSizePixel = 0
     panel.Position = UDim2.fromScale(0.5, 0.5)
-    panel.Size = UDim2.new(1, -72, 0, 86)
+    panel.Size = UDim2.new(1, -LOADER_PANEL_HORIZONTAL_INSET, 0, LOADER_PANEL_HEIGHT)
     panel.ZIndex = overlay.ZIndex + 1
     panel.Parent = overlay
+
+    local panelCorner = Instance.new("UICorner")
+    panelCorner.CornerRadius = UDim.new(0, WINDOW_CORNER_RADIUS)
+    panelCorner.Parent = panel
 
     local track = Instance.new("Frame")
     track.Name = "Track"
     track.BackgroundColor3 = Theme["nav-stroke"]
     track.BackgroundTransparency = 0.3
     track.BorderSizePixel = 0
-    track.Position = UDim2.fromOffset(0, 8)
+    track.Position = UDim2.fromOffset(0, LOADER_TRACK_TOP)
     track.Size = UDim2.new(1, 0, 0, LOADER_TRACK_HEIGHT)
     track.ZIndex = panel.ZIndex
     track.Parent = panel
+
+    local trackCorner = Instance.new("UICorner")
+    trackCorner.CornerRadius = UDim.new(0, WINDOW_CORNER_RADIUS)
+    trackCorner.Parent = track
 
     local fill = Instance.new("Frame")
     fill.Name = "Fill"
@@ -319,16 +332,20 @@ local function createLoader(frame: Frame)
     fill.ZIndex = track.ZIndex + 1
     fill.Parent = track
 
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0, WINDOW_CORNER_RADIUS)
+    fillCorner.Parent = fill
+
     local statusLabel = createTextLabel("StatusLabel", Enum.Font.Gotham, 16, Theme["text-secondary"], panel.ZIndex)
     statusLabel.AnchorPoint = Vector2.new(0, 0.5)
-    statusLabel.Position = UDim2.new(0, 0, 0, 46)
+    statusLabel.Position = UDim2.new(0, 0, 0, LOADER_LABEL_CENTER_Y)
     statusLabel.Size = UDim2.new(1, -64, 0, 22)
     statusLabel.Text = DEFAULT_LOADER_STATUS
     statusLabel.Parent = panel
 
     local percentLabel = createTextLabel("PercentLabel", Enum.Font.GothamMedium, 16, Theme.accent, panel.ZIndex)
     percentLabel.AnchorPoint = Vector2.new(1, 0.5)
-    percentLabel.Position = UDim2.new(1, 0, 0, 46)
+    percentLabel.Position = UDim2.new(1, 0, 0, LOADER_LABEL_CENTER_Y)
     percentLabel.Size = UDim2.fromOffset(60, 22)
     percentLabel.Text = "0%"
     percentLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -1317,6 +1334,10 @@ function Window.new(parent: Instance, config)
     frame.ZIndex = 1
     frame:SetAttribute("SlateComponent", "Window")
     frame.Parent = parent
+
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0, WINDOW_CORNER_RADIUS)
+    frameCorner.Parent = frame
 
     local refs = createTitleBar(frame)
     for key, value in pairs(createSidebar(frame)) do
