@@ -1,4 +1,5 @@
 local Theme = require(script.Parent.Parent.theme.Theme)
+local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
 
 local KeyPicker = {}
@@ -6,6 +7,8 @@ local KeyPickerMeta = {}
 
 local BUTTON_HEIGHT = 18
 local CORNER_RADIUS = 4
+local FONT = Enum.Font.Gotham
+local FONT_SIZE = 11
 local PADDING_X = 8
 
 local LIVE_PROPERTIES = {
@@ -61,14 +64,25 @@ local function formatKeyName(value)
     return key
 end
 
+local function getButtonWidth(text)
+    local textWidth = TextService:GetTextSize(text, FONT_SIZE, FONT, Vector2.new(math.huge, BUTTON_HEIGHT)).X
+
+    return math.max(BUTTON_HEIGHT, textWidth + (PADDING_X * 2))
+end
+
+local function notifyParentLayout(self)
+    if self.Parent and self.Parent._syncAddonLayout then
+        self.Parent:_syncAddonLayout()
+    end
+end
+
 local function createKeyPicker(parent)
     local button = Instance.new("TextButton")
     button.Name = "KeyPicker"
     button.AutoButtonColor = false
-    button.AutomaticSize = Enum.AutomaticSize.X
     button.BackgroundColor3 = Theme["toggle-body"]
     button.BorderSizePixel = 0
-    button.Size = UDim2.fromOffset(0, BUTTON_HEIGHT)
+    button.Size = UDim2.fromOffset(BUTTON_HEIGHT, BUTTON_HEIGHT)
     button.Text = ""
     button.Parent = parent
 
@@ -81,8 +95,7 @@ local function createKeyPicker(parent)
     overlay.BackgroundColor3 = Theme.accent
     overlay.BackgroundTransparency = 1
     overlay.BorderSizePixel = 0
-    overlay.Position = UDim2.new(0, -PADDING_X, 0, 0)
-    overlay.Size = UDim2.new(1, PADDING_X * 2, 1, 0)
+    overlay.Size = UDim2.fromScale(1, 1)
     overlay.Parent = button
 
     local overlayCorner = Instance.new("UICorner")
@@ -95,21 +108,16 @@ local function createKeyPicker(parent)
     stroke.Thickness = 1
     stroke.Parent = button
 
-    local padding = Instance.new("UIPadding")
-    padding.PaddingLeft = UDim.new(0, PADDING_X)
-    padding.PaddingRight = UDim.new(0, PADDING_X)
-    padding.Parent = button
-
     local label = Instance.new("TextLabel")
     label.Name = "Label"
     label.AnchorPoint = Vector2.new(0.5, 0.5)
     label.BackgroundTransparency = 1
     label.BorderSizePixel = 0
-    label.Font = Enum.Font.Gotham
+    label.Font = FONT
     label.Position = UDim2.fromScale(0.5, 0.5)
     label.Size = UDim2.new(1, 0, 1, 0)
     label.TextColor3 = Theme["text-secondary"]
-    label.TextSize = 11
+    label.TextSize = FONT_SIZE
     label.TextXAlignment = Enum.TextXAlignment.Center
     label.TextYAlignment = Enum.TextYAlignment.Center
     label.Parent = button
@@ -128,10 +136,15 @@ end
 
 local function applyMetadata(self)
     local refs = self._refs
-    refs.label.Text = self._picking and "..." or formatKeyName(self._state.Value)
+    local text = self._picking and "..." or formatKeyName(self._state.Value)
+
+    refs.label.Text = text
+    refs.button.Size = UDim2.fromOffset(getButtonWidth(text), BUTTON_HEIGHT)
     refs.stroke.Color = self._picking and Theme.accent or Theme["toggle-stroke"]
     refs.stroke.Transparency = 0
     refs.overlay.BackgroundTransparency = self._picking and 0.84 or 1
+
+    notifyParentLayout(self)
 end
 
 local function syncParentToggle(self, state)

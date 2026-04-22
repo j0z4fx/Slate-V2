@@ -142,6 +142,7 @@ function Lucide.GetAsset(name)
     return nil
 end
 
+local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
 
 local ColorPicker = {}
@@ -722,6 +723,8 @@ local KeyPickerMeta = {}
 
 local BUTTON_HEIGHT = 18
 local CORNER_RADIUS = 4
+local FONT = Enum.Font.Gotham
+local FONT_SIZE = 11
 local PADDING_X = 8
 
 local LIVE_PROPERTIES = {
@@ -777,14 +780,25 @@ local function formatKeyName(value)
     return key
 end
 
+local function getButtonWidth(text)
+    local textWidth = TextService:GetTextSize(text, FONT_SIZE, FONT, Vector2.new(math.huge, BUTTON_HEIGHT)).X
+
+    return math.max(BUTTON_HEIGHT, textWidth + (PADDING_X * 2))
+end
+
+local function notifyParentLayout(self)
+    if self.Parent and self.Parent._syncAddonLayout then
+        self.Parent:_syncAddonLayout()
+    end
+end
+
 local function createKeyPicker(parent)
     local button = Instance.new("TextButton")
     button.Name = "KeyPicker"
     button.AutoButtonColor = false
-    button.AutomaticSize = Enum.AutomaticSize.X
     button.BackgroundColor3 = Theme["toggle-body"]
     button.BorderSizePixel = 0
-    button.Size = UDim2.fromOffset(0, BUTTON_HEIGHT)
+    button.Size = UDim2.fromOffset(BUTTON_HEIGHT, BUTTON_HEIGHT)
     button.Text = ""
     button.Parent = parent
 
@@ -797,8 +811,7 @@ local function createKeyPicker(parent)
     overlay.BackgroundColor3 = Theme.accent
     overlay.BackgroundTransparency = 1
     overlay.BorderSizePixel = 0
-    overlay.Position = UDim2.new(0, -PADDING_X, 0, 0)
-    overlay.Size = UDim2.new(1, PADDING_X * 2, 1, 0)
+    overlay.Size = UDim2.fromScale(1, 1)
     overlay.Parent = button
 
     local overlayCorner = Instance.new("UICorner")
@@ -811,21 +824,16 @@ local function createKeyPicker(parent)
     stroke.Thickness = 1
     stroke.Parent = button
 
-    local padding = Instance.new("UIPadding")
-    padding.PaddingLeft = UDim.new(0, PADDING_X)
-    padding.PaddingRight = UDim.new(0, PADDING_X)
-    padding.Parent = button
-
     local label = Instance.new("TextLabel")
     label.Name = "Label"
     label.AnchorPoint = Vector2.new(0.5, 0.5)
     label.BackgroundTransparency = 1
     label.BorderSizePixel = 0
-    label.Font = Enum.Font.Gotham
+    label.Font = FONT
     label.Position = UDim2.fromScale(0.5, 0.5)
     label.Size = UDim2.new(1, 0, 1, 0)
     label.TextColor3 = Theme["text-secondary"]
-    label.TextSize = 11
+    label.TextSize = FONT_SIZE
     label.TextXAlignment = Enum.TextXAlignment.Center
     label.TextYAlignment = Enum.TextYAlignment.Center
     label.Parent = button
@@ -844,10 +852,15 @@ end
 
 local function applyMetadata(self)
     local refs = self._refs
-    refs.label.Text = self._picking and "..." or formatKeyName(self._state.Value)
+    local text = self._picking and "..." or formatKeyName(self._state.Value)
+
+    refs.label.Text = text
+    refs.button.Size = UDim2.fromOffset(getButtonWidth(text), BUTTON_HEIGHT)
     refs.stroke.Color = self._picking and Theme.accent or Theme["toggle-stroke"]
     refs.stroke.Transparency = 0
     refs.overlay.BackgroundTransparency = self._picking and 0.84 or 1
+
+    notifyParentLayout(self)
 end
 
 local function syncParentToggle(self, state)
@@ -1729,6 +1742,16 @@ function Toggle:AddKeyPicker(config)
     return keyPicker
 end
 
+function Toggle:_syncAddonLayout()
+    if self._destroyed then
+        return self
+    end
+
+    updateLayout(self)
+
+    return self
+end
+
 function Toggle:Destroy()
     if self._destroyed then
         return
@@ -2574,6 +2597,24 @@ local function createTextLabel(name, font, textSize, textColor, zIndex)
     return label
 end
 
+local function createCornerPatch(parent, name, anchorPoint, position, color, zIndex)
+    local patch = Instance.new("Frame")
+    patch.Name = name
+    patch.AnchorPoint = anchorPoint
+    patch.BackgroundColor3 = color
+    patch.BorderSizePixel = 0
+    patch.Position = position
+    patch.Size = UDim2.fromOffset(WINDOW_CORNER_RADIUS * 2, WINDOW_CORNER_RADIUS * 2)
+    patch.ZIndex = zIndex
+    patch.Parent = parent
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, WINDOW_CORNER_RADIUS)
+    corner.Parent = patch
+
+    return patch
+end
+
 local function setInternal(self, key, value)
     rawset(self, key, value)
 end
@@ -2857,6 +2898,24 @@ local function createTitleBar(frame: Frame)
     accentLabel.TextXAlignment = Enum.TextXAlignment.Center
     accentLabel.Parent = accentChip
 
+    local topLeftCorner = createCornerPatch(
+        frame,
+        "TopLeftCornerPatch",
+        Vector2.zero,
+        UDim2.fromOffset(0, 0),
+        Theme["nav-bg"],
+        titleBar.ZIndex + 2
+    )
+
+    local topRightCorner = createCornerPatch(
+        frame,
+        "TopRightCornerPatch",
+        Vector2.new(1, 0),
+        UDim2.new(1, 0, 0, 0),
+        Theme["nav-bg"],
+        titleBar.ZIndex + 2
+    )
+
     return {
         titleBar = titleBar,
         titleBarStroke = titleBarStroke,
@@ -2864,6 +2923,8 @@ local function createTitleBar(frame: Frame)
         versionLabel = versionLabel,
         accentChip = accentChip,
         accentLabel = accentLabel,
+        topLeftCornerPatch = topLeftCorner,
+        topRightCornerPatch = topRightCorner,
     }
 end
 
@@ -2916,12 +2977,32 @@ local function createSidebar(frame: Frame)
     contentPadding.PaddingBottom = UDim.new(0, CONTENT_PADDING)
     contentPadding.Parent = content
 
+    local bottomLeftCorner = createCornerPatch(
+        frame,
+        "BottomLeftCornerPatch",
+        Vector2.new(0, 1),
+        UDim2.new(0, 0, 1, 0),
+        Theme["nav-bg"],
+        sidebar.ZIndex + 2
+    )
+
+    local bottomRightCorner = createCornerPatch(
+        frame,
+        "BottomRightCornerPatch",
+        Vector2.new(1, 1),
+        UDim2.new(1, 0, 1, 0),
+        Theme.background,
+        content.ZIndex + 1
+    )
+
     return {
         sidebar = sidebar,
         sidebarStroke = sidebarStroke,
         sidebarTabs = sidebarTabs,
         tabsLayout = tabsLayout,
         content = content,
+        bottomLeftCornerPatch = bottomLeftCorner,
+        bottomRightCornerPatch = bottomRightCorner,
     }
 end
 
@@ -3597,6 +3678,7 @@ local function applyMetadata(self)
     local shellReady = (not boot.active) and (not boot.revealStarted)
     local sidebarReady = (state.ShowSidebar and boot.sidebarVisible) or (shellReady and state.ShowSidebar)
     local contentReady = boot.contentVisible or shellReady
+    local titleBarVisible = boot.titleBarVisible or shellReady
 
     self.Instance.Size = renderSize
     self.Instance.Visible = state.Visible
@@ -3651,9 +3733,17 @@ local function applyMetadata(self)
     refs.content.Position = UDim2.fromOffset(state.ShowSidebar and state.SidebarWidth or 0, TITLE_BAR_HEIGHT)
     refs.content.Size = UDim2.new(1, -(state.ShowSidebar and state.SidebarWidth or 0), 1, -TITLE_BAR_HEIGHT)
     refs.content.Visible = contentReady
+    refs.topLeftCornerPatch.BackgroundColor3 = Theme["nav-bg"]
+    refs.topLeftCornerPatch.Visible = titleBarVisible
+    refs.topRightCornerPatch.BackgroundColor3 = Theme["nav-bg"]
+    refs.topRightCornerPatch.Visible = titleBarVisible
+    refs.bottomLeftCornerPatch.BackgroundColor3 = state.ShowSidebar and Theme["nav-bg"] or Theme.background
+    refs.bottomLeftCornerPatch.Visible = contentReady or sidebarReady
+    refs.bottomRightCornerPatch.BackgroundColor3 = Theme.background
+    refs.bottomRightCornerPatch.Visible = contentReady
     refs.cursorHorizontal.BackgroundColor3 = Theme.accent
     refs.cursorVertical.BackgroundColor3 = Theme.accent
-    refs.titleBar.Visible = boot.titleBarVisible or shellReady
+    refs.titleBar.Visible = titleBarVisible
 
     for _, tab in ipairs(self._tabs) do
         Tab._applyMetadata(tab)

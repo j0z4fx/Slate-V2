@@ -339,6 +339,16 @@ function Toggle:AddKeyPicker(config)
     return keyPicker
 end
 
+function Toggle:_syncAddonLayout()
+    if self._destroyed then
+        return self
+    end
+
+    updateLayout(self)
+
+    return self
+end
+
 function Toggle:Destroy()
     if self._destroyed then
         return

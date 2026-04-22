@@ -145,6 +145,24 @@ local function createTextLabel(name, font, textSize, textColor, zIndex)
     return label
 end
 
+local function createCornerPatch(parent, name, anchorPoint, position, color, zIndex)
+    local patch = Instance.new("Frame")
+    patch.Name = name
+    patch.AnchorPoint = anchorPoint
+    patch.BackgroundColor3 = color
+    patch.BorderSizePixel = 0
+    patch.Position = position
+    patch.Size = UDim2.fromOffset(WINDOW_CORNER_RADIUS * 2, WINDOW_CORNER_RADIUS * 2)
+    patch.ZIndex = zIndex
+    patch.Parent = parent
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, WINDOW_CORNER_RADIUS)
+    corner.Parent = patch
+
+    return patch
+end
+
 local function setInternal(self, key, value)
     rawset(self, key, value)
 end
@@ -428,6 +446,24 @@ local function createTitleBar(frame: Frame)
     accentLabel.TextXAlignment = Enum.TextXAlignment.Center
     accentLabel.Parent = accentChip
 
+    local topLeftCorner = createCornerPatch(
+        frame,
+        "TopLeftCornerPatch",
+        Vector2.zero,
+        UDim2.fromOffset(0, 0),
+        Theme["nav-bg"],
+        titleBar.ZIndex + 2
+    )
+
+    local topRightCorner = createCornerPatch(
+        frame,
+        "TopRightCornerPatch",
+        Vector2.new(1, 0),
+        UDim2.new(1, 0, 0, 0),
+        Theme["nav-bg"],
+        titleBar.ZIndex + 2
+    )
+
     return {
         titleBar = titleBar,
         titleBarStroke = titleBarStroke,
@@ -435,6 +471,8 @@ local function createTitleBar(frame: Frame)
         versionLabel = versionLabel,
         accentChip = accentChip,
         accentLabel = accentLabel,
+        topLeftCornerPatch = topLeftCorner,
+        topRightCornerPatch = topRightCorner,
     }
 end
 
@@ -487,12 +525,32 @@ local function createSidebar(frame: Frame)
     contentPadding.PaddingBottom = UDim.new(0, CONTENT_PADDING)
     contentPadding.Parent = content
 
+    local bottomLeftCorner = createCornerPatch(
+        frame,
+        "BottomLeftCornerPatch",
+        Vector2.new(0, 1),
+        UDim2.new(0, 0, 1, 0),
+        Theme["nav-bg"],
+        sidebar.ZIndex + 2
+    )
+
+    local bottomRightCorner = createCornerPatch(
+        frame,
+        "BottomRightCornerPatch",
+        Vector2.new(1, 1),
+        UDim2.new(1, 0, 1, 0),
+        Theme.background,
+        content.ZIndex + 1
+    )
+
     return {
         sidebar = sidebar,
         sidebarStroke = sidebarStroke,
         sidebarTabs = sidebarTabs,
         tabsLayout = tabsLayout,
         content = content,
+        bottomLeftCornerPatch = bottomLeftCorner,
+        bottomRightCornerPatch = bottomRightCorner,
     }
 end
 
@@ -1168,6 +1226,7 @@ local function applyMetadata(self)
     local shellReady = (not boot.active) and (not boot.revealStarted)
     local sidebarReady = (state.ShowSidebar and boot.sidebarVisible) or (shellReady and state.ShowSidebar)
     local contentReady = boot.contentVisible or shellReady
+    local titleBarVisible = boot.titleBarVisible or shellReady
 
     self.Instance.Size = renderSize
     self.Instance.Visible = state.Visible
@@ -1222,9 +1281,17 @@ local function applyMetadata(self)
     refs.content.Position = UDim2.fromOffset(state.ShowSidebar and state.SidebarWidth or 0, TITLE_BAR_HEIGHT)
     refs.content.Size = UDim2.new(1, -(state.ShowSidebar and state.SidebarWidth or 0), 1, -TITLE_BAR_HEIGHT)
     refs.content.Visible = contentReady
+    refs.topLeftCornerPatch.BackgroundColor3 = Theme["nav-bg"]
+    refs.topLeftCornerPatch.Visible = titleBarVisible
+    refs.topRightCornerPatch.BackgroundColor3 = Theme["nav-bg"]
+    refs.topRightCornerPatch.Visible = titleBarVisible
+    refs.bottomLeftCornerPatch.BackgroundColor3 = state.ShowSidebar and Theme["nav-bg"] or Theme.background
+    refs.bottomLeftCornerPatch.Visible = contentReady or sidebarReady
+    refs.bottomRightCornerPatch.BackgroundColor3 = Theme.background
+    refs.bottomRightCornerPatch.Visible = contentReady
     refs.cursorHorizontal.BackgroundColor3 = Theme.accent
     refs.cursorVertical.BackgroundColor3 = Theme.accent
-    refs.titleBar.Visible = boot.titleBarVisible or shellReady
+    refs.titleBar.Visible = titleBarVisible
 
     for _, tab in ipairs(self._tabs) do
         Tab._applyMetadata(tab)
