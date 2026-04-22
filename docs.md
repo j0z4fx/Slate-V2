@@ -16,7 +16,7 @@ This matters because visible content is page-based. When a tab is selected, only
 ## Installation
 
 ```lua
-local Slate = loadstring(game:HttpGet("https://raw.githubusercontent.com/j0z4fx/Slate-V2/main/loader.lua"))()
+local Slate = loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/j0z4fx/Slate-V2@main/loader.lua"))()
 ```
 
 If you want to pin a specific version, replace `@main` with a commit hash.
@@ -422,7 +422,7 @@ Typical usage:
 Current example flow:
 
 ```lua
-local Slate = loadstring(game:HttpGet("https://raw.githubusercontent.com/j0z4fx/Slate-V2/main/loader.lua"))()
+local Slate = loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/j0z4fx/Slate-V2@main/loader.lua"))()
 
 local Window = Slate:CreateWindow({
     Title = "Example",

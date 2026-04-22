@@ -8,7 +8,7 @@ Load Slate:
 
 ```lua
 local cacheBuster = tostring(os.clock())
-local loaderSource = ("https://raw.githubusercontent.com/j0z4fx/Slate-V2/main/loader.lua?cache=%s"):format(cacheBuster)
+local loaderSource = ("https://cdn.jsdelivr.net/gh/j0z4fx/Slate-V2@main/loader.lua?cache=%s"):format(cacheBuster)
 local Slate = loadstring(game:HttpGet(loaderSource))()
 ```
 

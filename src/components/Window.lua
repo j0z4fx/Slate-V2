@@ -914,6 +914,13 @@ local function setGroupboxZOffset(root, delta)
     end
 end
 
+local function advanceGroupboxDragVersion(dragState)
+    -- Snap tween callbacks run asynchronously, so each drag cycle gets a unique version.
+    dragState.version = (dragState.version or 0) + 1
+
+    return dragState.version
+end
+
 updateDraggedGroupboxPosition = function(self)
     local dragState = self._groupboxDrag
     if not dragState.dragging or not dragState.groupbox then
@@ -991,10 +998,16 @@ end
 
 local function clearGroupboxDrag(self)
     local dragState = self._groupboxDrag
+    advanceGroupboxDragVersion(dragState)
 
     if dragState.snapConnection then
         safeDisconnect(dragState.snapConnection)
         dragState.snapConnection = nil
+    end
+
+    if dragState.snapTween then
+        dragState.snapTween:Cancel()
+        dragState.snapTween = nil
     end
 
     if dragState.placeholder then
@@ -1004,9 +1017,64 @@ local function clearGroupboxDrag(self)
 
     dragState.dragging = false
     dragState.groupbox = nil
+    dragState.offset = Vector2.zero
+    dragState.originalAutomaticSize = nil
+    dragState.originalSize = nil
+    dragState.pointer = Vector2.zero
     dragState.sourceColumn = nil
     dragState.tab = nil
     dragState.targetColumn = nil
+end
+
+local function finalizePendingGroupboxDrag(self)
+    local dragState = self._groupboxDrag
+    local groupbox = dragState.groupbox
+    if not groupbox or groupbox._destroyed then
+        clearGroupboxDrag(self)
+        return false
+    end
+
+    local root = groupbox.Instance
+    local sourceColumn = dragState.sourceColumn
+    local targetColumn = dragState.targetColumn or groupbox.Column or sourceColumn
+    local placeholder = dragState.placeholder
+    local targetLayoutOrder = placeholder and placeholder.LayoutOrder or groupbox.LayoutOrder
+    advanceGroupboxDragVersion(dragState)
+
+    if dragState.snapConnection then
+        safeDisconnect(dragState.snapConnection)
+        dragState.snapConnection = nil
+    end
+
+    if dragState.snapTween then
+        dragState.snapTween:Cancel()
+        dragState.snapTween = nil
+    end
+
+    if root and root.Parent ~= nil and targetColumn and targetColumn.Parent ~= nil then
+        if groupbox._dragging then
+            setGroupboxZOffset(root, -GROUPBOX_DRAG_ZINDEX_OFFSET)
+            setInternal(groupbox, "_dragging", false)
+        end
+
+        root.Parent = targetColumn
+        root.AutomaticSize = dragState.originalAutomaticSize or Enum.AutomaticSize.Y
+        root.Size = dragState.originalSize or UDim2.new(1, 0, 0, 0)
+        root.Position = UDim2.new()
+        groupbox:SetPlacement(targetColumn, targetLayoutOrder)
+    end
+
+    clearGroupboxDrag(self)
+
+    if targetColumn and targetColumn.Parent ~= nil then
+        commitColumnLayout(self, targetColumn)
+    end
+
+    if sourceColumn and sourceColumn ~= targetColumn and sourceColumn.Parent ~= nil then
+        commitColumnLayout(self, sourceColumn)
+    end
+
+    return true
 end
 
 local function beginGroupboxDrag(self, groupbox, inputPosition)
@@ -1015,11 +1083,16 @@ local function beginGroupboxDrag(self, groupbox, inputPosition)
         return
     end
 
+    if dragState.groupbox then
+        finalizePendingGroupboxDrag(self)
+    end
+
     local root = groupbox.Instance
     local absPos = root.AbsolutePosition
     local absSize = root.AbsoluteSize
     local rootGui = self.Parent
     local rootGuiPosition = rootGui.AbsolutePosition
+    advanceGroupboxDragVersion(dragState)
 
     dragState.dragging = true
     dragState.groupbox = groupbox
@@ -1077,7 +1150,12 @@ end
 
 endGroupboxDrag = function(self)
     local dragState = self._groupboxDrag
-    if not dragState.dragging or not dragState.groupbox then
+    if not dragState.groupbox then
+        return
+    end
+
+    if not dragState.dragging then
+        finalizePendingGroupboxDrag(self)
         return
     end
 
@@ -1096,6 +1174,7 @@ endGroupboxDrag = function(self)
     end
 
     dragState.dragging = false
+    local dragVersion = dragState.version
 
     local snapTween = TweenService:Create(
         root,
@@ -1125,6 +1204,11 @@ endGroupboxDrag = function(self)
     end
 
     dragState.snapConnection = snapTween.Completed:Connect(function(playbackState)
+        -- Ignore completions from an older drag if the groupbox was grabbed again mid-snap.
+        if dragState.version ~= dragVersion or dragState.groupbox ~= groupbox then
+            return
+        end
+
         dragState.snapConnection = nil
         dragState.snapTween = nil
 
@@ -1614,6 +1698,7 @@ function Window.new(parent: Instance, config)
             sourceColumn = nil,
             tab = nil,
             targetColumn = nil,
+            version = 0,
         },
         _boot = createBootState(state.Size),
         _refs = refs,
@@ -1931,8 +2016,8 @@ function Window:Destroy()
         tab:Destroy()
     end
 
-    if self._groupboxDrag.dragging then
-        endGroupboxDrag(self)
+    if self._groupboxDrag.groupbox then
+        clearGroupboxDrag(self)
     end
 
     for _, connection in pairs(self._groupboxConnections) do
