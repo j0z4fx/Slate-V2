@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/rojo-rbx/rojo/master/assets/schemas/project.schema.json",
+  "name": "Slate-V2",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Slate": {
+        "$path": "src"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "SlateHarness": {
+          "$path": "harness/init.client.lua"
+        },
+        "Harness": {
+          "$path": "harness/Harness.lua"
+        }
+      }
+    }
+  }
+}
