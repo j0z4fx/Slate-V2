@@ -4,7 +4,7 @@ local Groupbox = {}
 local GroupboxMeta = {}
 
 local TITLE_HEIGHT = 26
-local TITLE_FONT_SIZE = 22
+local TITLE_FONT_SIZE = 19
 local TITLE_COLOR = Color3.fromRGB(94, 94, 126)
 local CORNER_RADIUS = 6
 local STROKE_THICKNESS = 1
@@ -53,28 +53,26 @@ local function createGroupbox(parent)
     local titlePadding = Instance.new("UIPadding")
     titlePadding.PaddingTop = UDim.new(0, 7)
     titlePadding.PaddingBottom = UDim.new(0, 6)
-    titlePadding.PaddingLeft = UDim.new(0, 12)
     titlePadding.Parent = titleBar
 
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Name = "TitleLabel"
-    titleLabel.AutomaticSize = Enum.AutomaticSize.X
     titleLabel.BackgroundTransparency = 1
     titleLabel.BorderSizePixel = 0
-    titleLabel.Size = UDim2.new(0, 0, 1, 0)
+    titleLabel.Size = UDim2.new(1, 0, 1, 0)
     titleLabel.TextColor3 = TITLE_COLOR
     titleLabel.TextSize = TITLE_FONT_SIZE
     titleLabel.TextScaled = false
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Center
     titleLabel.TextYAlignment = Enum.TextYAlignment.Center
     titleLabel.ZIndex = titleBar.ZIndex + 1
     titleLabel.Parent = titleBar
 
-    local fontOk, font = pcall(Font.new, "rbxasset://fonts/families/Inter.json", Enum.FontWeight.SemiBold)
+    local fontOk, font = pcall(Font.new, "rbxasset://fonts/families/Inter.json", Enum.FontWeight.Medium)
     if fontOk then
         titleLabel.FontFace = font
     else
-        titleLabel.Font = Enum.Font.GothamBold
+        titleLabel.Font = Enum.Font.GothamMedium
     end
 
     local separator = Instance.new("Frame")
