@@ -18,9 +18,22 @@ local window = Slate:CreateWindow({
     ShowSidebar = true,
     AutoShow = true,
 })
+
+window.Title = "Example"
+window.Width = 900
+window:Set({
+    Height = 500,
+    ShowSidebar = false,
+})
+```
+
+Destroy:
+```lua
+window:Destroy()
+Slate:Destroy()
 ```
 
 Harness:
 - `harness/init.client.lua` mounts the library in `PlayerGui`
-- `harness/Harness.lua` exposes `mount`, `unmount`, `step`, and `snapshotState`
+- `harness/Harness.lua` exposes `mount`, `unmount`, `Destroy`, `step`, and `snapshotState`
 - future MCP-driven test passes can call the harness, wait `0.1`, and then take a Roblox window screenshot

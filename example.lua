@@ -4,3 +4,5 @@ local Window = Slate:CreateWindow({
     Width = 960,
     Height = 540,
 })
+
+Window.Title = "Example"

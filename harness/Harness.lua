@@ -15,8 +15,20 @@ local function readColor(color: Color3)
 end
 
 function Harness.unmount()
-    if Harness._session and Harness._session.screenGui then
-        Harness._session.screenGui:Destroy()
+    local session = Harness._session
+
+    if session then
+        if session.window then
+            pcall(function()
+                session.window:Destroy()
+            end)
+        end
+
+        if session.screenGui and session.screenGui.Parent then
+            pcall(function()
+                session.screenGui:Destroy()
+            end)
+        end
     end
 
     Harness._session = nil
@@ -60,6 +72,10 @@ function Harness.snapshotState()
         windowName = session.window.Instance.Name,
         title = session.window.Title,
         visible = session.window.Visible,
+        autoShow = session.window.AutoShow,
+        width = session.window.Width,
+        height = session.window.Height,
+        destroyed = session.window._destroyed,
         absolutePosition = {
             x = session.window.Instance.AbsolutePosition.X,
             y = session.window.Instance.AbsolutePosition.Y,
@@ -79,6 +95,10 @@ function Harness.step(delaySeconds: number?)
     task.wait(delaySeconds or 0.1)
 
     return Harness.snapshotState()
+end
+
+function Harness:Destroy()
+    Harness.unmount()
 end
 
 return Harness

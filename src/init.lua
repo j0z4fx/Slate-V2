@@ -25,4 +25,8 @@ function Slate:CreateWindow(config)
     return Window.new(target, windowConfig)
 end
 
+function Slate:Destroy()
+    Root.destroy()
+end
+
 return Slate
