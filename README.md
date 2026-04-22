@@ -9,7 +9,7 @@ local Slate = loadstring(game:HttpGet("https://raw.githubusercontent.com/j0z4fx/
 
 Current API:
 ```lua
-local window = Slate.CreateWindow(parent)
+local window = Slate.CreateWindow()
 ```
 
 Harness:
