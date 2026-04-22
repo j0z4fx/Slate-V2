@@ -3322,7 +3322,7 @@ function Window.new(parent: Instance, config)
 
     applyMetadata(self)
     attachInteractions(self)
-    self:AddTab({
+    Window.AddTab(self, {
         Title = "Settings",
         Icon = "settings",
         LayoutColumns = 2,
