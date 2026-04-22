@@ -4,6 +4,8 @@ local Window = {}
 local WindowMeta = {}
 local CHIP_TEXT = "SLATE"
 local TITLE_BAR_HEIGHT = 36
+local TITLE_BAR_STROKE = 4
+local SIDEBAR_STROKE = 4
 
 local DEFAULTS = {
     Title = "Slate",
@@ -11,7 +13,7 @@ local DEFAULTS = {
     Width = 960,
     Height = 540,
     Resizable = true,
-    SidebarWidth = 220,
+    SidebarWidth = 48,
     ShowSidebar = true,
     AutoShow = true,
 }
@@ -110,7 +112,7 @@ local function createTitleBar(frame: Frame)
     local titleBarStroke = Instance.new("UIStroke")
     titleBarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     titleBarStroke.Color = Theme["nav-stroke"]
-    titleBarStroke.Thickness = 1
+    titleBarStroke.Thickness = TITLE_BAR_STROKE
     titleBarStroke.Parent = titleBar
 
     local titleCluster = Instance.new("Frame")
@@ -172,6 +174,29 @@ local function createTitleBar(frame: Frame)
     }
 end
 
+local function createSidebar(frame: Frame)
+    local sidebar = Instance.new("Frame")
+    sidebar.Name = "Sidebar"
+    sidebar.BackgroundColor3 = Theme["nav-bg"]
+    sidebar.BorderSizePixel = 0
+    sidebar.Position = UDim2.fromOffset(0, TITLE_BAR_HEIGHT)
+    sidebar.Size = UDim2.new(0, DEFAULTS.SidebarWidth, 1, -TITLE_BAR_HEIGHT)
+    sidebar.ZIndex = frame.ZIndex + 1
+    sidebar:SetAttribute("SlateComponent", "Sidebar")
+    sidebar.Parent = frame
+
+    local sidebarStroke = Instance.new("UIStroke")
+    sidebarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    sidebarStroke.Color = Theme["nav-stroke"]
+    sidebarStroke.Thickness = SIDEBAR_STROKE
+    sidebarStroke.Parent = sidebar
+
+    return {
+        sidebar = sidebar,
+        sidebarStroke = sidebarStroke,
+    }
+end
+
 local function applyMetadata(self)
     local state = self._state
     local refs = self._refs
@@ -186,6 +211,7 @@ local function applyMetadata(self)
 
     refs.titleBar.BackgroundColor3 = Theme["nav-bg"]
     refs.titleBarStroke.Color = Theme["nav-stroke"]
+    refs.titleBarStroke.Thickness = TITLE_BAR_STROKE
     refs.titleLabel.Text = state.Title
     refs.titleLabel.TextColor3 = Theme["text-primary"]
     refs.versionLabel.Text = state.Version or ""
@@ -195,6 +221,11 @@ local function applyMetadata(self)
     refs.accentChip.BackgroundTransparency = 0.84
     refs.accentLabel.Text = CHIP_TEXT
     refs.accentLabel.TextColor3 = Theme.accent
+    refs.sidebar.BackgroundColor3 = Theme["nav-bg"]
+    refs.sidebar.Size = UDim2.new(0, state.SidebarWidth, 1, -TITLE_BAR_HEIGHT)
+    refs.sidebar.Visible = state.ShowSidebar
+    refs.sidebarStroke.Color = Theme["nav-stroke"]
+    refs.sidebarStroke.Thickness = SIDEBAR_STROKE
 end
 
 local function createState(config)
@@ -297,6 +328,9 @@ function Window.new(parent: Instance, config)
     frame.Parent = parent
 
     local refs = createTitleBar(frame)
+    for key, value in pairs(createSidebar(frame)) do
+        refs[key] = value
+    end
 
     local self = setmetatable({
         Instance = frame,

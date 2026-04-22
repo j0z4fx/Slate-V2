@@ -10,11 +10,13 @@ local ROOT_NAME = "Slate"
 local ROOT_ATTRIBUTE = "SlateOwned"
 local CHIP_TEXT = "SLATE"
 local TITLE_BAR_HEIGHT = 36
+local TITLE_BAR_STROKE = 4
+local SIDEBAR_STROKE = 4
 
 Slate.Theme = {
     background = Color3.fromRGB(15, 15, 24),
     ["nav-bg"] = Color3.fromRGB(12, 12, 20),
-    ["nav-stroke"] = Color3.fromRGB(12, 12, 20),
+    ["nav-stroke"] = Color3.fromRGB(37, 37, 46),
     ["text-primary"] = Color3.fromRGB(212, 212, 236),
     ["text-secondary"] = Color3.fromRGB(94, 94, 126),
     accent = Color3.fromRGB(255, 91, 155),
@@ -26,7 +28,7 @@ local DEFAULTS = {
     Width = 960,
     Height = 540,
     Resizable = true,
-    SidebarWidth = 220,
+    SidebarWidth = 48,
     ShowSidebar = true,
     AutoShow = true,
 }
@@ -185,7 +187,7 @@ local function createTitleBar(frame)
     local titleBarStroke = Instance.new("UIStroke")
     titleBarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     titleBarStroke.Color = Slate.Theme["nav-stroke"]
-    titleBarStroke.Thickness = 1
+    titleBarStroke.Thickness = TITLE_BAR_STROKE
     titleBarStroke.Parent = titleBar
 
     local titleCluster = Instance.new("Frame")
@@ -247,6 +249,29 @@ local function createTitleBar(frame)
     }
 end
 
+local function createSidebar(frame)
+    local sidebar = Instance.new("Frame")
+    sidebar.Name = "Sidebar"
+    sidebar.BackgroundColor3 = Slate.Theme["nav-bg"]
+    sidebar.BorderSizePixel = 0
+    sidebar.Position = UDim2.fromOffset(0, TITLE_BAR_HEIGHT)
+    sidebar.Size = UDim2.new(0, DEFAULTS.SidebarWidth, 1, -TITLE_BAR_HEIGHT)
+    sidebar.ZIndex = frame.ZIndex + 1
+    sidebar:SetAttribute("SlateComponent", "Sidebar")
+    sidebar.Parent = frame
+
+    local sidebarStroke = Instance.new("UIStroke")
+    sidebarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    sidebarStroke.Color = Slate.Theme["nav-stroke"]
+    sidebarStroke.Thickness = SIDEBAR_STROKE
+    sidebarStroke.Parent = sidebar
+
+    return {
+        sidebar = sidebar,
+        sidebarStroke = sidebarStroke,
+    }
+end
+
 local function applyMetadata(self)
     local state = self._state
     local refs = self._refs
@@ -261,6 +286,7 @@ local function applyMetadata(self)
 
     refs.titleBar.BackgroundColor3 = Slate.Theme["nav-bg"]
     refs.titleBarStroke.Color = Slate.Theme["nav-stroke"]
+    refs.titleBarStroke.Thickness = TITLE_BAR_STROKE
     refs.titleLabel.Text = state.Title
     refs.titleLabel.TextColor3 = Slate.Theme["text-primary"]
     refs.versionLabel.Text = state.Version or ""
@@ -270,6 +296,11 @@ local function applyMetadata(self)
     refs.accentChip.BackgroundTransparency = 0.84
     refs.accentLabel.Text = CHIP_TEXT
     refs.accentLabel.TextColor3 = Slate.Theme.accent
+    refs.sidebar.BackgroundColor3 = Slate.Theme["nav-bg"]
+    refs.sidebar.Size = UDim2.new(0, state.SidebarWidth, 1, -TITLE_BAR_HEIGHT)
+    refs.sidebar.Visible = state.ShowSidebar
+    refs.sidebarStroke.Color = Slate.Theme["nav-stroke"]
+    refs.sidebarStroke.Thickness = SIDEBAR_STROKE
 end
 
 local function createState(config)
@@ -476,6 +507,9 @@ function Slate:CreateWindow(config)
     frame.Parent = target
 
     local refs = createTitleBar(frame)
+    for key, value in pairs(createSidebar(frame)) do
+        refs[key] = value
+    end
 
     local window = setmetatable({
         Instance = frame,
