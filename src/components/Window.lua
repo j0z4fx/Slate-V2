@@ -1500,8 +1500,9 @@ function Window:FinishLoading(text)
             return
         end
 
-        local ok = pcall(playBootReveal, self)
+        local ok, err = pcall(playBootReveal, self)
         if not ok and not self._destroyed then
+            warn(string.format("Slate boot reveal failed: %s", tostring(err)))
             forceBootVisible(self)
         end
     end)
