@@ -7,7 +7,9 @@ Slate-V2 is a Roblox UI library with a remote loader, tab-based layouts, live-up
 Load Slate:
 
 ```lua
-local Slate = loadstring(game:HttpGet("https://raw.githubusercontent.com/j0z4fx/Slate-V2/main/loader.lua"))()
+local cacheBuster = tostring(os.clock())
+local loaderSource = ("https://raw.githubusercontent.com/j0z4fx/Slate-V2/main/loader.lua?cache=%s"):format(cacheBuster)
+local Slate = loadstring(game:HttpGet(loaderSource))()
 ```
 
 Create a window:
