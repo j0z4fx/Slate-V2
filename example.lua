@@ -17,10 +17,16 @@ local Profile = Window:AddTab({
     Icon = "user-round",
 })
 
-local HomeGroup = Home:AddGroupbox("leftColumn", { Title = "General" })
+local HomeGroup = Home:AddGroupbox("leftColumn", { Title = "Example" })
 Profile:AddGroupbox("leftColumn", { Title = "Profile" })
 Window.Tabs.Settings:AddGroupbox("leftColumn", { Title = "Settings" })
-Window.Tabs.Settings:AddGroupbox("middleColumn", { Title = "Advanced" })
+Window.Tabs.Settings:AddGroupbox("middleColumn", { Title = "Configuration" })
+HomeGroup:AddLabel({
+    Text = "Library v2.4.1",
+    Subtext = "Loaded successfully",
+})
+HomeGroup:AddDivider()
+HomeGroup:AddSeparator("Separator")
 HomeGroup:AddToggle({
     Text = "Example Toggle",
     Default = false,

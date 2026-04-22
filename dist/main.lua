@@ -7,6 +7,10 @@ local Theme = {
     accent = Color3.fromRGB(255, 91, 155),
     surface = Color3.fromRGB(21, 21, 33),
     ["surface-stroke"] = Color3.fromRGB(38, 38, 58),
+    ["divider-line"] = Color3.fromRGB(37, 37, 46),
+    ["separator-text"] = Color3.fromRGB(82, 94, 114),
+    ["label-primary"] = Color3.fromRGB(212, 212, 236),
+    ["label-subtext"] = Color3.fromRGB(94, 94, 126),
     ["toggle-body"] = Color3.fromRGB(32, 32, 46),
     ["toggle-dot"] = Color3.fromRGB(94, 94, 126),
     ["toggle-stroke"] = Color3.fromRGB(46, 46, 68),
@@ -136,6 +140,419 @@ function Lucide.GetAsset(name)
     end
 
     return nil
+end
+
+
+local Divider = {}
+local DividerMeta = {}
+
+local HEIGHT = 8
+
+local function createDivider(parent)
+    local frame = Instance.new("Frame")
+    frame.Name = "Divider"
+    frame.BackgroundTransparency = 1
+    frame.BorderSizePixel = 0
+    frame.Size = UDim2.new(1, 0, 0, HEIGHT)
+    frame.Parent = parent
+
+    local line = Instance.new("Frame")
+    line.Name = "Line"
+    line.AnchorPoint = Vector2.new(0, 0.5)
+    line.BackgroundColor3 = Theme["divider-line"]
+    line.BorderSizePixel = 0
+    line.Position = UDim2.new(0, 0, 0.5, 0)
+    line.Size = UDim2.new(1, 0, 0, 1)
+    line.Parent = frame
+
+    return {
+        frame = frame,
+        line = line,
+    }
+end
+
+function Divider.new(parent)
+    local refs = createDivider(parent)
+
+    local self = setmetatable({
+        Instance = refs.frame,
+        _destroyed = false,
+        _refs = refs,
+    }, DividerMeta)
+
+    return self
+end
+
+function Divider:Destroy()
+    if self._destroyed then
+        return
+    end
+
+    self._destroyed = true
+    self.Instance:Destroy()
+end
+
+function DividerMeta.__index(self, key)
+    local method = Divider[key]
+    if method ~= nil then
+        return method
+    end
+
+    return rawget(self, key)
+end
+
+
+local Label = {}
+local LabelMeta = {}
+
+local LIVE_PROPERTIES = {
+    Subtext = true,
+    Text = true,
+    Visible = true,
+}
+
+local DEFAULTS = {
+    Subtext = nil,
+    Text = "Label",
+    Visible = true,
+}
+
+local function getValue(value, fallback)
+    if value == nil then
+        return fallback
+    end
+
+    return value
+end
+
+local function normalizePropertyValue(property, value)
+    if property == "Text" then
+        return tostring(getValue(value, DEFAULTS.Text))
+    end
+
+    if property == "Subtext" then
+        if value == nil or value == "" then
+            return nil
+        end
+
+        return tostring(value)
+    end
+
+    if property == "Visible" then
+        return getValue(value, DEFAULTS.Visible)
+    end
+
+    return value
+end
+
+local function createLabel(parent)
+    local frame = Instance.new("Frame")
+    frame.Name = "Label"
+    frame.AutomaticSize = Enum.AutomaticSize.Y
+    frame.BackgroundTransparency = 1
+    frame.BorderSizePixel = 0
+    frame.Size = UDim2.new(1, 0, 0, 0)
+    frame.Parent = parent
+
+    local layout = Instance.new("UIListLayout")
+    layout.FillDirection = Enum.FillDirection.Vertical
+    layout.Padding = UDim.new(0, 2)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = frame
+
+    local primary = Instance.new("TextLabel")
+    primary.Name = "Primary"
+    primary.AutomaticSize = Enum.AutomaticSize.Y
+    primary.BackgroundTransparency = 1
+    primary.BorderSizePixel = 0
+    primary.Font = Enum.Font.GothamMedium
+    primary.Size = UDim2.new(1, 0, 0, 0)
+    primary.TextColor3 = Theme["label-primary"]
+    primary.TextSize = 14
+    primary.TextWrapped = true
+    primary.TextXAlignment = Enum.TextXAlignment.Left
+    primary.TextYAlignment = Enum.TextYAlignment.Top
+    primary.Parent = frame
+
+    local subtext = Instance.new("TextLabel")
+    subtext.Name = "Subtext"
+    subtext.AutomaticSize = Enum.AutomaticSize.Y
+    subtext.BackgroundTransparency = 1
+    subtext.BorderSizePixel = 0
+    subtext.Font = Enum.Font.Gotham
+    subtext.Size = UDim2.new(1, 0, 0, 0)
+    subtext.TextColor3 = Theme["label-subtext"]
+    subtext.TextSize = 13
+    subtext.TextWrapped = true
+    subtext.TextXAlignment = Enum.TextXAlignment.Left
+    subtext.TextYAlignment = Enum.TextYAlignment.Top
+    subtext.Visible = false
+    subtext.Parent = frame
+
+    return {
+        frame = frame,
+        primary = primary,
+        subtext = subtext,
+    }
+end
+
+local function ensureProperty(property)
+    assert(LIVE_PROPERTIES[property], string.format("Unsupported label property %q", tostring(property)))
+end
+
+local function applyMetadata(self)
+    local refs = self._refs
+    local state = self._state
+
+    refs.frame.Visible = state.Visible
+    refs.primary.Text = state.Text
+    refs.subtext.Text = state.Subtext or ""
+    refs.subtext.Visible = state.Subtext ~= nil
+end
+
+function Label.new(parent, config)
+    local refs = createLabel(parent)
+    local cfg = config or {}
+
+    local self = setmetatable({
+        Instance = refs.frame,
+        _destroyed = false,
+        _refs = refs,
+        _state = {
+            Subtext = normalizePropertyValue("Subtext", cfg.Subtext),
+            Text = normalizePropertyValue("Text", cfg.Text or cfg.Title),
+            Visible = normalizePropertyValue("Visible", cfg.Visible),
+        },
+    }, LabelMeta)
+
+    applyMetadata(self)
+
+    return self
+end
+
+function Label:Set(propertyOrProperties, value)
+    if self._destroyed then
+        return self
+    end
+
+    if type(propertyOrProperties) == "table" then
+        for property, nextValue in pairs(propertyOrProperties) do
+            ensureProperty(property)
+            self._state[property] = normalizePropertyValue(property, nextValue)
+        end
+    else
+        ensureProperty(propertyOrProperties)
+        self._state[propertyOrProperties] = normalizePropertyValue(propertyOrProperties, value)
+    end
+
+    applyMetadata(self)
+
+    return self
+end
+
+function Label:Update(properties)
+    return self:Set(properties)
+end
+
+function Label:Destroy()
+    if self._destroyed then
+        return
+    end
+
+    self._destroyed = true
+    self.Instance:Destroy()
+end
+
+function LabelMeta.__index(self, key)
+    local method = Label[key]
+    if method ~= nil then
+        return method
+    end
+
+    local state = rawget(self, "_state")
+    if state and state[key] ~= nil then
+        return state[key]
+    end
+
+    return rawget(self, key)
+end
+
+function LabelMeta.__newindex(self, key, value)
+    if rawget(self, "_state") and LIVE_PROPERTIES[key] then
+        self:Set(key, value)
+        return
+    end
+
+    error(string.format("Unsupported label property %q", tostring(key)))
+end
+
+
+local Separator = {}
+local SeparatorMeta = {}
+
+local HEIGHT = 12
+local TEXT_PADDING = 10
+
+local LIVE_PROPERTIES = {
+    Text = true,
+    Visible = true,
+}
+
+local DEFAULTS = {
+    Text = "Separator",
+    Visible = true,
+}
+
+local function getValue(value, fallback)
+    if value == nil then
+        return fallback
+    end
+
+    return value
+end
+
+local function normalizePropertyValue(property, value)
+    if property == "Text" then
+        return tostring(getValue(value, DEFAULTS.Text))
+    end
+
+    if property == "Visible" then
+        return getValue(value, DEFAULTS.Visible)
+    end
+
+    return value
+end
+
+local function createSeparator(parent)
+    local frame = Instance.new("Frame")
+    frame.Name = "Separator"
+    frame.BackgroundTransparency = 1
+    frame.BorderSizePixel = 0
+    frame.Size = UDim2.new(1, 0, 0, HEIGHT)
+    frame.Parent = parent
+
+    local line = Instance.new("Frame")
+    line.Name = "Line"
+    line.AnchorPoint = Vector2.new(0, 0.5)
+    line.BackgroundColor3 = Theme["divider-line"]
+    line.BorderSizePixel = 0
+    line.Position = UDim2.new(0, 0, 0.5, 0)
+    line.Size = UDim2.new(1, 0, 0, 1)
+    line.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Name = "Label"
+    label.AnchorPoint = Vector2.new(0.5, 0.5)
+    label.AutomaticSize = Enum.AutomaticSize.X
+    label.BackgroundColor3 = Theme.surface
+    label.BackgroundTransparency = 0
+    label.BorderSizePixel = 0
+    label.Font = Enum.Font.Gotham
+    label.Position = UDim2.fromScale(0.5, 0.5)
+    label.Size = UDim2.new(0, 0, 1, 0)
+    label.TextColor3 = Theme["separator-text"]
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Center
+    label.TextYAlignment = Enum.TextYAlignment.Center
+    label.Parent = frame
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, TEXT_PADDING)
+    padding.PaddingRight = UDim.new(0, TEXT_PADDING)
+    padding.Parent = label
+
+    return {
+        frame = frame,
+        line = line,
+        label = label,
+    }
+end
+
+local function ensureProperty(property)
+    assert(LIVE_PROPERTIES[property], string.format("Unsupported separator property %q", tostring(property)))
+end
+
+local function applyMetadata(self)
+    local refs = self._refs
+    local state = self._state
+
+    refs.frame.Visible = state.Visible
+    refs.label.Text = string.upper(state.Text)
+end
+
+function Separator.new(parent, config)
+    local refs = createSeparator(parent)
+    local cfg = config or {}
+
+    local self = setmetatable({
+        Instance = refs.frame,
+        _destroyed = false,
+        _refs = refs,
+        _state = {
+            Text = normalizePropertyValue("Text", cfg.Text or cfg.Title),
+            Visible = normalizePropertyValue("Visible", cfg.Visible),
+        },
+    }, SeparatorMeta)
+
+    applyMetadata(self)
+
+    return self
+end
+
+function Separator:Set(propertyOrProperties, value)
+    if self._destroyed then
+        return self
+    end
+
+    if type(propertyOrProperties) == "table" then
+        for property, nextValue in pairs(propertyOrProperties) do
+            ensureProperty(property)
+            self._state[property] = normalizePropertyValue(property, nextValue)
+        end
+    else
+        ensureProperty(propertyOrProperties)
+        self._state[propertyOrProperties] = normalizePropertyValue(propertyOrProperties, value)
+    end
+
+    applyMetadata(self)
+
+    return self
+end
+
+function Separator:Update(properties)
+    return self:Set(properties)
+end
+
+function Separator:Destroy()
+    if self._destroyed then
+        return
+    end
+
+    self._destroyed = true
+    self.Instance:Destroy()
+end
+
+function SeparatorMeta.__index(self, key)
+    local method = Separator[key]
+    if method ~= nil then
+        return method
+    end
+
+    local state = rawget(self, "_state")
+    if state and state[key] ~= nil then
+        return state[key]
+    end
+
+    return rawget(self, key)
+end
+
+function SeparatorMeta.__newindex(self, key, value)
+    if rawget(self, "_state") and LIVE_PROPERTIES[key] then
+        self:Set(key, value)
+        return
+    end
+
+    error(string.format("Unsupported separator property %q", tostring(key)))
 end
 
 local TweenService = game:GetService("TweenService")
@@ -603,6 +1020,45 @@ function Groupbox:AddToggle(configOrText, config)
     table.insert(self.Controls, toggle)
 
     return toggle
+end
+
+function Groupbox:AddDivider()
+    local divider = Divider.new(self.Content)
+    table.insert(self.Controls, divider)
+
+    return divider
+end
+
+function Groupbox:AddSeparator(configOrText, config)
+    local separatorConfig
+
+    if type(configOrText) == "table" then
+        separatorConfig = configOrText
+    else
+        separatorConfig = config or {}
+        separatorConfig.Text = configOrText
+    end
+
+    local separator = Separator.new(self.Content, separatorConfig)
+    table.insert(self.Controls, separator)
+
+    return separator
+end
+
+function Groupbox:AddLabel(configOrText, config)
+    local labelConfig
+
+    if type(configOrText) == "table" then
+        labelConfig = configOrText
+    else
+        labelConfig = config or {}
+        labelConfig.Text = configOrText
+    end
+
+    local label = Label.new(self.Content, labelConfig)
+    table.insert(self.Controls, label)
+
+    return label
 end
 
 function Groupbox:SetPlacement(column, layoutOrder)
@@ -2210,7 +2666,10 @@ runtime.__SlateMountedWindows = runtime.__SlateMountedWindows or {}
 local mountedWindows = runtime.__SlateMountedWindows
 
 Slate.Theme = Theme
+Slate.Divider = Divider
 Slate.Groupbox = Groupbox
+Slate.Label = Label
+Slate.Separator = Separator
 Slate.Toggle = Toggle
 
 local function destroyMountedWindows()

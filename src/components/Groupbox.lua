@@ -1,4 +1,7 @@
 local Theme = require(script.Parent.Parent.theme.Theme)
+local Divider = require(script.Parent.Divider)
+local Label = require(script.Parent.Label)
+local Separator = require(script.Parent.Separator)
 local Toggle = require(script.Parent.Toggle)
 
 local Groupbox = {}
@@ -153,6 +156,45 @@ function Groupbox:AddToggle(configOrText, config)
     table.insert(self.Controls, toggle)
 
     return toggle
+end
+
+function Groupbox:AddDivider()
+    local divider = Divider.new(self.Content)
+    table.insert(self.Controls, divider)
+
+    return divider
+end
+
+function Groupbox:AddSeparator(configOrText, config)
+    local separatorConfig
+
+    if type(configOrText) == "table" then
+        separatorConfig = configOrText
+    else
+        separatorConfig = config or {}
+        separatorConfig.Text = configOrText
+    end
+
+    local separator = Separator.new(self.Content, separatorConfig)
+    table.insert(self.Controls, separator)
+
+    return separator
+end
+
+function Groupbox:AddLabel(configOrText, config)
+    local labelConfig
+
+    if type(configOrText) == "table" then
+        labelConfig = configOrText
+    else
+        labelConfig = config or {}
+        labelConfig.Text = configOrText
+    end
+
+    local label = Label.new(self.Content, labelConfig)
+    table.insert(self.Controls, label)
+
+    return label
 end
 
 function Groupbox:SetPlacement(column, layoutOrder)
