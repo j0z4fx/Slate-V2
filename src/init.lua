@@ -1,6 +1,17 @@
 local Theme = require(script.theme.Theme)
+local Button = require(script.components.Button)
+local Checkbox = require(script.components.Checkbox)
+local Code = require(script.components.Code)
 local ColorPicker = require(script.components.ColorPicker)
+local Dialog = require(script.components.Dialog)
+local Dropdown = require(script.components.Dropdown)
 local Root = require(script.core.Root)
+local Input = require(script.components.Input)
+local Notification = require(script.components.Notification)
+local Paragraph = require(script.components.Paragraph)
+local Slider = require(script.components.Slider)
+local Tag = require(script.components.Tag)
+local Tabbox = require(script.components.Tabbox)
 local Window = require(script.components.Window)
 local Divider = require(script.components.Divider)
 local Groupbox = require(script.components.Groupbox)
@@ -21,12 +32,23 @@ runtime.__SlateMountedWindows = runtime.__SlateMountedWindows or {}
 local mountedWindows = runtime.__SlateMountedWindows
 
 Slate.Theme = Theme
+Slate.Button = Button
+Slate.Checkbox = Checkbox
+Slate.Code = Code
 Slate.ColorPicker = ColorPicker
+Slate.Dialog = Dialog
 Slate.Divider = Divider
+Slate.Dropdown = Dropdown
 Slate.Groupbox = Groupbox
+Slate.Input = Input
 Slate.KeyPicker = KeyPicker
 Slate.Label = Label
+Slate.Notification = Notification
+Slate.Paragraph = Paragraph
 Slate.Separator = Separator
+Slate.Slider = Slider
+Slate.Tag = Tag
+Slate.Tabbox = Tabbox
 Slate.Toggle = Toggle
 
 local function destroyMountedWindows()

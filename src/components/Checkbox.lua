@@ -3,17 +3,13 @@ local Ui = require(script.Parent.Parent.core.Ui)
 local ColorPicker = require(script.Parent.ColorPicker)
 local KeyPicker = require(script.Parent.KeyPicker)
 
-local Toggle = {}
-local ToggleMeta = {}
+local Checkbox = {}
+local CheckboxMeta = {}
 
-local FONT = Enum.Font.Gotham
-local FONT_SIZE = 14
-local ROW_HEIGHT = 20
-local SWITCH_WIDTH = 34
-local SWITCH_HEIGHT = 20
-local SWITCH_PADDING = 2
+local BOX_SIZE = 18
+local CHECKBOX_TWEEN_INFO = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local RIGHT_GAP = 6
-local TOGGLE_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local ROW_HEIGHT = 20
 
 local LIVE_PROPERTIES = {
     Disabled = true,
@@ -25,7 +21,7 @@ local LIVE_PROPERTIES = {
 local DEFAULTS = {
     Default = false,
     Disabled = false,
-    Text = "Toggle",
+    Text = "Checkbox",
     Visible = true,
 }
 
@@ -53,9 +49,9 @@ local function normalizePropertyValue(property, value)
     return value
 end
 
-local function createToggle(parent)
+local function createCheckbox(parent)
     local button = Instance.new("TextButton")
-    button.Name = "Toggle"
+    button.Name = "Checkbox"
     button.AutoButtonColor = false
     button.BackgroundTransparency = 1
     button.BorderSizePixel = 0
@@ -67,9 +63,10 @@ local function createToggle(parent)
     label.Name = "Label"
     label.BackgroundTransparency = 1
     label.BorderSizePixel = 0
-    label.Font = FONT
-    label.Size = UDim2.new(1, -(SWITCH_WIDTH + 10), 1, 0)
-    label.TextSize = FONT_SIZE
+    label.Font = Enum.Font.Gotham
+    label.Size = UDim2.new(1, -(BOX_SIZE + 10), 1, 0)
+    label.TextColor3 = Theme["text-secondary"]
+    label.TextSize = 14
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.TextYAlignment = Enum.TextYAlignment.Center
     label.Parent = button
@@ -80,7 +77,7 @@ local function createToggle(parent)
     addonRow.AutomaticSize = Enum.AutomaticSize.X
     addonRow.BackgroundTransparency = 1
     addonRow.BorderSizePixel = 0
-    addonRow.Position = UDim2.new(1, -(SWITCH_WIDTH + RIGHT_GAP), 0.5, 0)
+    addonRow.Position = UDim2.new(1, -(BOX_SIZE + RIGHT_GAP), 0.5, 0)
     addonRow.Size = UDim2.fromOffset(0, ROW_HEIGHT)
     addonRow.Parent = button
 
@@ -92,46 +89,60 @@ local function createToggle(parent)
     addonLayout.VerticalAlignment = Enum.VerticalAlignment.Center
     addonLayout.Parent = addonRow
 
-    local switch = Instance.new("Frame")
-    switch.Name = "Switch"
-    switch.AnchorPoint = Vector2.new(1, 0.5)
-    switch.BackgroundColor3 = Theme["toggle-body"]
-    switch.BorderSizePixel = 0
-    switch.Position = UDim2.new(1, 0, 0.5, 0)
-    switch.Size = UDim2.fromOffset(SWITCH_WIDTH, SWITCH_HEIGHT)
-    switch.Parent = button
+    local box = Instance.new("Frame")
+    box.Name = "Box"
+    box.AnchorPoint = Vector2.new(1, 0.5)
+    box.BackgroundColor3 = Theme["checkbox-bg"]
+    box.BorderSizePixel = 0
+    box.Position = UDim2.new(1, 0, 0.5, 0)
+    box.Size = UDim2.fromOffset(BOX_SIZE, BOX_SIZE)
+    box.Parent = button
 
-    local switchCorner = Instance.new("UICorner")
-    switchCorner.CornerRadius = UDim.new(1, 0)
-    switchCorner.Parent = switch
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 5)
+    corner.Parent = box
 
-    local switchStroke = Instance.new("UIStroke")
-    switchStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    switchStroke.Color = Theme["toggle-stroke"]
-    switchStroke.Thickness = 1
-    switchStroke.Parent = switch
+    local stroke = Instance.new("UIStroke")
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Color = Theme["checkbox-stroke"]
+    stroke.Thickness = 1
+    stroke.Parent = box
 
-    local dot = Instance.new("Frame")
-    dot.Name = "Dot"
-    dot.AnchorPoint = Vector2.new(0, 0.5)
-    dot.BackgroundColor3 = Theme["toggle-dot"]
-    dot.BorderSizePixel = 0
-    dot.Position = UDim2.fromOffset(SWITCH_PADDING, SWITCH_HEIGHT / 2)
-    dot.Size = UDim2.fromOffset(SWITCH_HEIGHT - (SWITCH_PADDING * 2), SWITCH_HEIGHT - (SWITCH_PADDING * 2))
-    dot.Parent = switch
+    local fill = Instance.new("Frame")
+    fill.Name = "Fill"
+    fill.AnchorPoint = Vector2.new(0.5, 0.5)
+    fill.BackgroundColor3 = Theme.accent
+    fill.BorderSizePixel = 0
+    fill.Position = UDim2.fromScale(0.5, 0.5)
+    fill.Size = UDim2.fromOffset(BOX_SIZE - 4, BOX_SIZE - 4)
+    fill.Parent = box
 
-    local dotCorner = Instance.new("UICorner")
-    dotCorner.CornerRadius = UDim.new(1, 0)
-    dotCorner.Parent = dot
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0, 4)
+    fillCorner.Parent = fill
+
+    local check = Instance.new("TextLabel")
+    check.Name = "Check"
+    check.BackgroundTransparency = 1
+    check.BorderSizePixel = 0
+    check.Size = UDim2.fromScale(1, 1)
+    check.Font = Enum.Font.GothamBold
+    check.Text = "✓"
+    check.TextColor3 = Color3.new(1, 1, 1)
+    check.TextSize = 12
+    check.TextXAlignment = Enum.TextXAlignment.Center
+    check.TextYAlignment = Enum.TextYAlignment.Center
+    check.Parent = fill
 
     return {
-        button = button,
-        label = label,
         addonLayout = addonLayout,
         addonRow = addonRow,
-        switch = switch,
-        switchStroke = switchStroke,
-        dot = dot,
+        box = box,
+        button = button,
+        check = check,
+        fill = fill,
+        label = label,
+        stroke = stroke,
     }
 end
 
@@ -151,84 +162,73 @@ local function updateLayout(self)
         end
     end
 
-    local reservedWidth = SWITCH_WIDTH + 10 + addonWidth
+    local reservedWidth = BOX_SIZE + 10 + addonWidth
     if addonWidth > 0 then
         reservedWidth += RIGHT_GAP
     end
 
-    refs.addonRow.Position = UDim2.new(1, -(SWITCH_WIDTH + RIGHT_GAP), 0.5, 0)
+    refs.addonRow.Position = UDim2.new(1, -(BOX_SIZE + RIGHT_GAP), 0.5, 0)
     refs.label.Size = UDim2.new(1, -reservedWidth, 1, 0)
+end
+
+local function ensureProperty(property)
+    assert(LIVE_PROPERTIES[property], string.format("Unsupported checkbox property %q", tostring(property)))
 end
 
 local function applyMetadata(self, instant)
     local refs = self._refs
     local state = self._state
-    local value = state.Value
+    local checked = state.Value
     local disabled = state.Disabled
-    local dotOffset = value and (SWITCH_WIDTH - SWITCH_HEIGHT + SWITCH_PADDING) or SWITCH_PADDING
-    local dotColor = value and Color3.new(1, 1, 1) or Theme["toggle-dot"]
-    local switchColor = value and Theme.accent or Theme["toggle-body"]
-    local strokeTransparency = value and 1 or 0
-    local labelColor = value and Theme["text-primary"] or Theme["text-secondary"]
-    local labelTransparency = disabled and 0.45 or 0
-    local switchTransparency = disabled and 0.2 or 0
-    local dotTransparency = disabled and 0.2 or 0
-    local strokeColor = Theme["toggle-stroke"]
+    local fillTransparency = checked and 0 or 1
+    local checkTransparency = checked and 0 or 1
+    local labelColor = checked and Theme["text-primary"] or Theme["text-secondary"]
+    local backgroundTransparency = disabled and 0.15 or 0
+    local labelTransparency = disabled and 0.35 or 0
 
     refs.button.Active = not disabled
     refs.button.Visible = state.Visible
     refs.label.Text = state.Text
     updateLayout(self)
 
+    Ui.cancel(self._tweens.fill)
+    Ui.cancel(self._tweens.check)
     Ui.cancel(self._tweens.label)
-    Ui.cancel(self._tweens.switch)
-    Ui.cancel(self._tweens.stroke)
-    Ui.cancel(self._tweens.dot)
+    Ui.cancel(self._tweens.box)
 
     if instant or not Ui.animationsEnabled(refs.button) then
+        refs.box.BackgroundTransparency = backgroundTransparency
+        refs.fill.BackgroundTransparency = fillTransparency
+        refs.check.TextTransparency = checkTransparency
         refs.label.TextColor3 = labelColor
         refs.label.TextTransparency = labelTransparency
-        refs.switch.BackgroundColor3 = switchColor
-        refs.switch.BackgroundTransparency = switchTransparency
-        refs.switchStroke.Color = strokeColor
-        refs.switchStroke.Transparency = strokeTransparency
-        refs.dot.BackgroundColor3 = dotColor
-        refs.dot.BackgroundTransparency = dotTransparency
-        refs.dot.Position = UDim2.fromOffset(dotOffset, SWITCH_HEIGHT / 2)
         return
     end
 
-    self._tweens.label = Ui.play(refs.label, TOGGLE_TWEEN_INFO, {
+    self._tweens.box = Ui.play(refs.box, CHECKBOX_TWEEN_INFO, {
+        BackgroundTransparency = backgroundTransparency,
+    })
+    self._tweens.fill = Ui.play(refs.fill, CHECKBOX_TWEEN_INFO, {
+        BackgroundTransparency = fillTransparency,
+    })
+    self._tweens.check = Ui.play(refs.check, CHECKBOX_TWEEN_INFO, {
+        TextTransparency = checkTransparency,
+    })
+    self._tweens.label = Ui.play(refs.label, CHECKBOX_TWEEN_INFO, {
         TextColor3 = labelColor,
         TextTransparency = labelTransparency,
     })
-    self._tweens.switch = Ui.play(refs.switch, TOGGLE_TWEEN_INFO, {
-        BackgroundColor3 = switchColor,
-        BackgroundTransparency = switchTransparency,
-    })
-    self._tweens.stroke = Ui.play(refs.switchStroke, TOGGLE_TWEEN_INFO, {
-        Transparency = strokeTransparency,
-    })
-    self._tweens.dot = Ui.play(refs.dot, TOGGLE_TWEEN_INFO, {
-        BackgroundColor3 = dotColor,
-        BackgroundTransparency = dotTransparency,
-        Position = UDim2.fromOffset(dotOffset, SWITCH_HEIGHT / 2),
-    })
 end
 
-local function ensureProperty(property)
-    assert(LIVE_PROPERTIES[property], string.format("Unsupported toggle property %q", tostring(property)))
-end
-
-function Toggle.new(parent, config)
-    local refs = createToggle(parent)
+function Checkbox.new(parent, config)
+    local refs = createCheckbox(parent)
     local cfg = config or {}
 
     local self = setmetatable({
         Instance = refs.button,
         Parent = parent,
-        _destroyed = false,
         _addons = {},
+        _destroyed = false,
         _onChanged = cfg.Changed or cfg.Callback,
         _refs = refs,
         _state = {
@@ -238,7 +238,7 @@ function Toggle.new(parent, config)
             Visible = normalizePropertyValue("Visible", cfg.Visible),
         },
         _tweens = {},
-    }, ToggleMeta)
+    }, CheckboxMeta)
 
     refs.button.MouseButton1Click:Connect(function()
         if self._destroyed or self._state.Disabled then
@@ -253,11 +253,7 @@ function Toggle.new(parent, config)
     return self
 end
 
-function Toggle:Get(property)
-    return self._state[property]
-end
-
-function Toggle:Set(propertyOrProperties, value)
+function Checkbox:Set(propertyOrProperties, value)
     if self._destroyed then
         return self
     end
@@ -273,8 +269,8 @@ function Toggle:Set(propertyOrProperties, value)
                 changedValue = changedValue or property == "Value"
             end
         end
-        applyMetadata(self, false)
 
+        applyMetadata(self, false)
         if changedValue and self._onChanged then
             self._onChanged(self._state.Value)
         end
@@ -299,37 +295,33 @@ function Toggle:Set(propertyOrProperties, value)
     return self
 end
 
-function Toggle:Update(properties)
+function Checkbox:Update(properties)
     return self:Set(properties)
 end
 
-function Toggle:SetValue(value)
+function Checkbox:SetValue(value)
     return self:Set("Value", value)
 end
 
-function Toggle:SetText(text)
+function Checkbox:SetText(text)
     return self:Set("Text", text)
 end
 
-function Toggle:SetDisabled(disabled)
+function Checkbox:SetDisabled(disabled)
     return self:Set("Disabled", disabled)
 end
 
-function Toggle:SetVisible(visible)
+function Checkbox:SetVisible(visible)
     return self:Set("Visible", visible)
 end
 
-function Toggle:Toggle()
-    return self:SetValue(not self._state.Value)
-end
-
-function Toggle:OnChanged(callback)
+function Checkbox:OnChanged(callback)
     self._onChanged = callback
 
     return self
 end
 
-function Toggle:AddColorPicker(config)
+function Checkbox:AddColorPicker(config)
     local colorPicker = ColorPicker.new(self, config or {})
     table.insert(self._addons, colorPicker)
     updateLayout(self)
@@ -337,7 +329,7 @@ function Toggle:AddColorPicker(config)
     return colorPicker
 end
 
-function Toggle:AddKeyPicker(config)
+function Checkbox:AddKeyPicker(config)
     local keyPicker = KeyPicker.new(self, config or {})
     table.insert(self._addons, keyPicker)
     updateLayout(self)
@@ -345,7 +337,7 @@ function Toggle:AddKeyPicker(config)
     return keyPicker
 end
 
-function Toggle:_syncAddonLayout()
+function Checkbox:_syncAddonLayout()
     if self._destroyed then
         return self
     end
@@ -355,7 +347,7 @@ function Toggle:_syncAddonLayout()
     return self
 end
 
-function Toggle:Destroy()
+function Checkbox:Destroy()
     if self._destroyed then
         return
     end
@@ -375,8 +367,8 @@ function Toggle:Destroy()
     self.Instance:Destroy()
 end
 
-function ToggleMeta.__index(self, key)
-    local method = Toggle[key]
+function CheckboxMeta.__index(self, key)
+    local method = Checkbox[key]
     if method ~= nil then
         return method
     end
@@ -389,13 +381,13 @@ function ToggleMeta.__index(self, key)
     return rawget(self, key)
 end
 
-function ToggleMeta.__newindex(self, key, value)
+function CheckboxMeta.__newindex(self, key, value)
     if rawget(self, "_state") and LIVE_PROPERTIES[key] then
         self:Set(key, value)
         return
     end
 
-    error(string.format("Unsupported toggle property %q", tostring(key)))
+    error(string.format("Unsupported checkbox property %q", tostring(key)))
 end
 
-return Toggle
+return Checkbox

@@ -1,4 +1,5 @@
 local Theme = require(script.Parent.Parent.theme.Theme)
+local Keybind = require(script.Parent.Parent.core.Keybind)
 local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -22,48 +23,6 @@ local DEFAULTS = {
     Mode = "Toggle",
     Text = "Keybind",
 }
-
-local SPECIAL_INPUTS = {
-    [Enum.UserInputType.MouseButton1] = "MB1",
-    [Enum.UserInputType.MouseButton2] = "MB2",
-    [Enum.UserInputType.MouseButton3] = "MB3",
-}
-
-local function normalizeKey(value)
-    if value == nil then
-        return DEFAULTS.Default
-    end
-
-    if typeof(value) == "EnumItem" then
-        return value.Name
-    end
-
-    return tostring(value)
-end
-
-local function inputToKeyName(input)
-    if SPECIAL_INPUTS[input.UserInputType] then
-        return SPECIAL_INPUTS[input.UserInputType]
-    end
-
-    if input.KeyCode and input.KeyCode ~= Enum.KeyCode.Unknown then
-        return input.KeyCode.Name
-    end
-
-    return nil
-end
-
-local function formatKeyName(value)
-    local key = normalizeKey(value)
-    if key == "None" then
-        return key
-    end
-
-    key = key:gsub("(%l)(%u)", "%1 %2")
-    key = key:gsub("Button(%d)", "Button %1")
-
-    return key
-end
 
 local function getButtonWidth(text)
     local textWidth = TextService:GetTextSize(text, FONT_SIZE, FONT, Vector2.new(math.huge, BUTTON_HEIGHT)).X
@@ -136,7 +95,7 @@ end
 
 local function applyMetadata(self)
     local refs = self._refs
-    local text = self._picking and "..." or formatKeyName(self._state.Value)
+    local text = self._picking and "..." or Keybind.format(self._state.Value)
 
     refs.label.Text = text
     refs.button.Size = UDim2.fromOffset(getButtonWidth(text), BUTTON_HEIGHT)
@@ -183,11 +142,12 @@ function KeyPicker.new(toggle, config)
             Mode = tostring(cfg.Mode or DEFAULTS.Mode),
             SyncToggleState = cfg.SyncToggleState == true,
             Toggled = false,
-            Value = normalizeKey(cfg.Default),
+            Value = Keybind.normalize(cfg.Default),
         },
     }, KeyPickerMeta)
 
     table.insert(self._connections, refs.button.MouseButton1Click:Connect(function()
+        Keybind.beginCapture(self)
         self._picking = true
         applyMetadata(self)
     end))
@@ -197,12 +157,13 @@ function KeyPicker.new(toggle, config)
             return
         end
 
-        local keyName = inputToKeyName(input)
+        local keyName = Keybind.inputToKeyName(input)
         if not keyName then
             return
         end
 
         if self._picking then
+            Keybind.endCapture(self)
             self._picking = false
             self._state.Value = keyName
             applyMetadata(self)
@@ -227,7 +188,7 @@ function KeyPicker.new(toggle, config)
     end))
 
     table.insert(self._connections, UserInputService.InputEnded:Connect(function(input)
-        local keyName = inputToKeyName(input)
+        local keyName = Keybind.inputToKeyName(input)
         if keyName ~= self._state.Value then
             return
         end
@@ -248,20 +209,46 @@ function KeyPicker:Set(propertyOrProperties, value)
     end
 
     if type(propertyOrProperties) == "table" then
+        local changedValue = false
+
         for property, nextValue in pairs(propertyOrProperties) do
             ensureProperty(property)
             if property == "Value" then
-                self._state.Value = normalizeKey(nextValue)
+                local normalized = Keybind.normalize(nextValue)
+                if self._state.Value ~= normalized then
+                    self._state.Value = normalized
+                    changedValue = true
+                end
             else
-                self._state[property] = tostring(nextValue)
+                local normalized = tostring(nextValue)
+                if self._state[property] ~= normalized then
+                    self._state[property] = normalized
+                end
             end
+        end
+
+        if changedValue and self._onChanged then
+            self._onChanged(self._state.Value)
         end
     else
         ensureProperty(propertyOrProperties)
         if propertyOrProperties == "Value" then
-            self._state.Value = normalizeKey(value)
+            local normalized = Keybind.normalize(value)
+            if self._state.Value == normalized then
+                applyMetadata(self)
+                return self
+            end
+            self._state.Value = normalized
+            if self._onChanged then
+                self._onChanged(self._state.Value)
+            end
         else
-            self._state[propertyOrProperties] = tostring(value)
+            local normalized = tostring(value)
+            if self._state[propertyOrProperties] == normalized then
+                applyMetadata(self)
+                return self
+            end
+            self._state[propertyOrProperties] = normalized
         end
     end
 
@@ -304,6 +291,7 @@ function KeyPicker:Destroy()
     end
 
     self._destroyed = true
+    Keybind.endCapture(self)
     for _, connection in ipairs(self._connections) do
         connection:Disconnect()
     end

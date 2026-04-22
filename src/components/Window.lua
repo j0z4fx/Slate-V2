@@ -1,6 +1,11 @@
 local Theme = require(script.Parent.Parent.theme.Theme)
+local Keybind = require(script.Parent.Parent.core.Keybind)
+local Ui = require(script.Parent.Parent.core.Ui)
 local Tab = require(script.Parent.Tab)
 local Groupbox = require(script.Parent.Groupbox)
+local Notification = require(script.Parent.Notification)
+local Dialog = require(script.Parent.Dialog)
+local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
@@ -48,6 +53,8 @@ local WINDOW_BOOT_CONTENT_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Quin
 local TAB_SWITCH_FILL_TWEEN_INFO = TweenInfo.new(0.14, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local TAB_SWITCH_LINE_TWEEN_INFO = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local WINDOW_BOOT_TAB_STAGGER = 0.055
+local WINDOW_BLUR_SIZE = 18
+local WINDOW_BLUR_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local DEFAULT_LOADER_STATUS = "Initializing Slate..."
 local TRANSPARENCY_PROPERTIES = {
     "BackgroundTransparency",
@@ -64,6 +71,9 @@ local DEFAULTS = {
     Resizable = true,
     SidebarWidth = DEFAULT_SIDEBAR_WIDTH,
     ShowSidebar = true,
+    ToggleKeybind = "RightControl",
+    BackgroundBlur = false,
+    Animations = true,
     AutoShow = true,
 }
 
@@ -74,6 +84,9 @@ local LIVE_PROPERTIES = {
     ShowSidebar = true,
     SidebarWidth = true,
     Size = true,
+    ToggleKeybind = true,
+    BackgroundBlur = true,
+    Animations = true,
     Title = true,
     Version = true,
     Visible = true,
@@ -111,6 +124,14 @@ local function normalizePropertyValue(property, value)
 
     if property == "ShowSidebar" then
         return getValue(value, DEFAULTS.ShowSidebar)
+    end
+
+    if property == "ToggleKeybind" then
+        return Keybind.normalize(getValue(value, DEFAULTS.ToggleKeybind))
+    end
+
+    if property == "BackgroundBlur" or property == "Animations" then
+        return getValue(value, DEFAULTS[property])
     end
 
     if property == "Visible" or property == "AutoShow" then
@@ -173,6 +194,10 @@ local function safeDisconnect(connection)
     if connection then
         connection:Disconnect()
     end
+end
+
+local function animationsEnabled(self)
+    return self._state.Animations ~= false
 end
 
 local function getCompactSize(size)
@@ -393,6 +418,19 @@ local function createTitleBar(frame: Frame)
     titleBar:SetAttribute("SlateComponent", "TitleBar")
     titleBar.Parent = frame
 
+    local titleBarCorner = Instance.new("UICorner")
+    titleBarCorner.CornerRadius = UDim.new(0, WINDOW_CORNER_RADIUS)
+    titleBarCorner.Parent = titleBar
+
+    local titleBarBottomSquare = Instance.new("Frame")
+    titleBarBottomSquare.Name = "BottomSquare"
+    titleBarBottomSquare.BackgroundColor3 = Theme["nav-bg"]
+    titleBarBottomSquare.BorderSizePixel = 0
+    titleBarBottomSquare.Position = UDim2.fromOffset(0, WINDOW_CORNER_RADIUS)
+    titleBarBottomSquare.Size = UDim2.new(1, 0, 1, -WINDOW_CORNER_RADIUS)
+    titleBarBottomSquare.ZIndex = titleBar.ZIndex
+    titleBarBottomSquare.Parent = titleBar
+
     local titleBarStroke = Instance.new("UIStroke")
     titleBarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     titleBarStroke.Color = Theme["nav-stroke"]
@@ -473,6 +511,7 @@ local function createTitleBar(frame: Frame)
         versionLabel = versionLabel,
         accentChip = accentChip,
         accentLabel = accentLabel,
+        titleBarBottomSquare = titleBarBottomSquare,
         topLeftCornerPatch = topLeftCorner,
         topRightCornerPatch = topRightCorner,
     }
@@ -488,6 +527,27 @@ local function createSidebar(frame: Frame)
     sidebar.ZIndex = frame.ZIndex
     sidebar:SetAttribute("SlateComponent", "Sidebar")
     sidebar.Parent = frame
+
+    local sidebarCorner = Instance.new("UICorner")
+    sidebarCorner.CornerRadius = UDim.new(0, WINDOW_CORNER_RADIUS)
+    sidebarCorner.Parent = sidebar
+
+    local sidebarTopSquare = Instance.new("Frame")
+    sidebarTopSquare.Name = "TopSquare"
+    sidebarTopSquare.BackgroundColor3 = Theme["nav-bg"]
+    sidebarTopSquare.BorderSizePixel = 0
+    sidebarTopSquare.Size = UDim2.new(1, 0, 0, WINDOW_CORNER_RADIUS)
+    sidebarTopSquare.ZIndex = sidebar.ZIndex
+    sidebarTopSquare.Parent = sidebar
+
+    local sidebarRightSquare = Instance.new("Frame")
+    sidebarRightSquare.Name = "RightSquare"
+    sidebarRightSquare.BackgroundColor3 = Theme["nav-bg"]
+    sidebarRightSquare.BorderSizePixel = 0
+    sidebarRightSquare.Position = UDim2.fromOffset(WINDOW_CORNER_RADIUS, 0)
+    sidebarRightSquare.Size = UDim2.new(1, -WINDOW_CORNER_RADIUS, 1, 0)
+    sidebarRightSquare.ZIndex = sidebar.ZIndex
+    sidebarRightSquare.Parent = sidebar
 
     local sidebarStroke = Instance.new("UIStroke")
     sidebarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -584,6 +644,8 @@ local function createSidebar(frame: Frame)
         content = content,
         bottomLeftCornerPatch = bottomLeftCorner,
         bottomRightCornerPatch = bottomRightCorner,
+        sidebarTopSquare = sidebarTopSquare,
+        sidebarRightSquare = sidebarRightSquare,
     }
 end
 
@@ -638,6 +700,8 @@ local updateDraggedGroupboxPosition
 local updateDragPlaceholder
 local endGroupboxDrag
 local applyWindowMetadata
+local applyBlurState
+local buildDefaultSettingsPanel
 
 local function attachInteractions(self)
     local refs = self._refs
@@ -695,6 +759,19 @@ local function attachInteractions(self)
             setInternal(self, "_dragging", false)
             endGroupboxDrag(self)
         end
+    end)
+
+    connect(self, UserInputService.InputBegan, function(input, processed)
+        if processed or self._destroyed or Keybind.isCapturing() or Ui.isTextInputFocused() then
+            return
+        end
+
+        local keyName = Keybind.inputToKeyName(input)
+        if keyName == nil or keyName ~= self._state.ToggleKeybind then
+            return
+        end
+
+        self:Set("Visible", not self._state.Visible)
     end)
 end
 
@@ -789,6 +866,13 @@ local function prepareTabTransition(self, fromTab, toTab)
 end
 
 local function playTabSwitchTransition(self, fromTab, toTab)
+    if not animationsEnabled(self) then
+        setSelectedTab(self, toTab)
+        clearTabTransition(self)
+        applyWindowMetadata(self)
+        return
+    end
+
     local prepared, transitionData = prepareTabTransition(self, fromTab, toTab)
     if not prepared then
         setSelectedTab(self, toTab)
@@ -1176,6 +1260,25 @@ endGroupboxDrag = function(self)
     dragState.dragging = false
     local dragVersion = dragState.version
 
+    if not animationsEnabled(self) then
+        setGroupboxZOffset(root, -GROUPBOX_DRAG_ZINDEX_OFFSET)
+        root.Parent = targetColumn
+        root.AutomaticSize = dragState.originalAutomaticSize or Enum.AutomaticSize.Y
+        root.Size = dragState.originalSize or UDim2.new(1, 0, 0, 0)
+        root.Position = UDim2.new()
+        groupbox:SetPlacement(targetColumn, targetLayoutOrder)
+        setInternal(groupbox, "_dragging", false)
+
+        clearGroupboxDrag(self)
+        commitColumnLayout(self, targetColumn)
+
+        if sourceColumn and sourceColumn ~= targetColumn then
+            commitColumnLayout(self, sourceColumn)
+        end
+
+        return
+    end
+
     local snapTween = TweenService:Create(
         root,
         GROUPBOX_DRAG_TWEEN_INFO,
@@ -1277,7 +1380,7 @@ local function setLoaderProgress(self, progress, text, instant)
         boot.loaderFillTween = nil
     end
 
-    if instant then
+    if instant or not animationsEnabled(self) then
         refs.loaderFill.Size = UDim2.new(nextProgress, 0, 1, 0)
         return
     end
@@ -1315,6 +1418,116 @@ local function scheduleAutoFinish(self)
     end)
 end
 
+local function ensureBlur(self)
+    for _, child in ipairs(Lighting:GetChildren()) do
+        if child:IsA("BlurEffect") and child.Name == "SlateMenuBlur" and child ~= self._blurEffect then
+            child:Destroy()
+        end
+    end
+
+    if self._blurEffect and self._blurEffect.Parent ~= nil then
+        return self._blurEffect
+    end
+
+    local blur = Instance.new("BlurEffect")
+    blur.Enabled = false
+    blur.Name = "SlateMenuBlur"
+    blur.Size = 0
+    blur.Parent = Lighting
+
+    setInternal(self, "_blurEffect", blur)
+
+    return blur
+end
+
+applyBlurState = function(self, instant)
+    local shouldBlur = self._state.Visible and self._state.BackgroundBlur
+    local blur = self._blurEffect
+
+    if not shouldBlur and blur == nil then
+        setInternal(self, "_blurTargetVisible", false)
+        return
+    end
+
+    if not instant and self._blurTargetVisible == shouldBlur then
+        if self._blurTween ~= nil then
+            return
+        end
+
+        if blur ~= nil then
+            if shouldBlur and blur.Enabled and math.abs(blur.Size - WINDOW_BLUR_SIZE) < 0.01 then
+                return
+            end
+
+            if not shouldBlur and not blur.Enabled and blur.Size <= 0 then
+                return
+            end
+        end
+    end
+
+    blur = ensureBlur(self)
+
+    if self._blurTween then
+        self._blurTween:Cancel()
+        setInternal(self, "_blurTween", nil)
+    end
+
+    if self._blurConnection then
+        self._blurConnection:Disconnect()
+        setInternal(self, "_blurConnection", nil)
+    end
+
+    if self._blurDriver then
+        self._blurDriver:Destroy()
+        setInternal(self, "_blurDriver", nil)
+    end
+
+    setInternal(self, "_blurTargetVisible", shouldBlur)
+    blur.Enabled = shouldBlur or blur.Size > 0
+
+    if instant or not animationsEnabled(self) then
+        blur.Size = shouldBlur and WINDOW_BLUR_SIZE or 0
+        blur.Enabled = shouldBlur
+        return
+    end
+
+    local driver = Instance.new("NumberValue")
+    driver.Value = blur.Size
+
+    local connection = driver:GetPropertyChangedSignal("Value"):Connect(function()
+        blur.Size = driver.Value
+    end)
+
+    blur.Enabled = true
+
+    local tween = TweenService:Create(driver, WINDOW_BLUR_TWEEN_INFO, {
+        Value = shouldBlur and WINDOW_BLUR_SIZE or 0,
+    })
+
+    setInternal(self, "_blurDriver", driver)
+    setInternal(self, "_blurConnection", connection)
+    setInternal(self, "_blurTween", tween)
+    tween.Completed:Connect(function()
+        if self._blurTween ~= tween then
+            return
+        end
+
+        connection:Disconnect()
+        driver:Destroy()
+        setInternal(self, "_blurConnection", nil)
+        setInternal(self, "_blurDriver", nil)
+        setInternal(self, "_blurTween", nil)
+        if not self._blurTargetVisible and blur.Parent ~= nil then
+            blur.Enabled = false
+            blur.Size = 0
+        else
+            blur.Enabled = true
+            blur.Size = WINDOW_BLUR_SIZE
+        end
+    end)
+    tween:Play()
+end
+
 local function forceBootVisible(self)
     local boot = self._boot
     local state = self._state
@@ -1348,6 +1561,12 @@ local function hideLoaderOverlay(self)
         return
     end
 
+    if not animationsEnabled(self) then
+        refs.loaderOverlay.Visible = false
+        boot.loaderVisible = false
+        return
+    end
+
     local state = captureTransparencyState(refs.loaderOverlay)
     local playbackState = tweenTransparencyAlpha(state, 0, 1, LOADER_PANEL_TWEEN_INFO, false)
 
@@ -1360,6 +1579,16 @@ end
 
 local function revealTabs(self)
     local visibleTabs = getVisibleTabs(self)
+
+    if not animationsEnabled(self) then
+        for _, tab in ipairs(visibleTabs) do
+            tab._bootVisible = true
+            tab._refs.button.Size = UDim2.new(1, 0, 0, 48)
+            tab._refs.button.Visible = true
+        end
+
+        return
+    end
 
     for _, tab in ipairs(visibleTabs) do
         local button = tab._refs.button
@@ -1383,6 +1612,12 @@ end
 local function revealActivePage(self)
     local activeTab = getActiveTab(self)
     if not activeTab then
+        return
+    end
+
+    if not animationsEnabled(self) then
+        self._boot.contentVisible = true
+        applyWindowMetadata(self)
         return
     end
 
@@ -1414,6 +1649,11 @@ local function playBootReveal(self)
     local boot = self._boot
     local refs = self._refs
     local state = self._state
+
+    if not animationsEnabled(self) then
+        forceBootVisible(self)
+        return
+    end
 
     task.wait(LOADER_FINAL_HOLD)
     hideLoaderOverlay(self)
@@ -1479,10 +1719,14 @@ applyWindowMetadata = function(self)
     self.Instance:SetAttribute("Resizable", state.Resizable)
     self.Instance:SetAttribute("SidebarWidth", state.SidebarWidth)
     self.Instance:SetAttribute("ShowSidebar", state.ShowSidebar)
+    self.Instance:SetAttribute("ToggleKeybind", state.ToggleKeybind)
+    self.Instance:SetAttribute("BackgroundBlur", state.BackgroundBlur)
+    self.Instance:SetAttribute("SlateAnimationsEnabled", state.Animations)
 
     refs.titleBar.BackgroundColor3 = Theme["nav-bg"]
     refs.titleBarStroke.Color = Theme["nav-stroke"]
     refs.titleBarStroke.Thickness = TITLE_BAR_STROKE
+    refs.titleBarBottomSquare.BackgroundColor3 = Theme["nav-bg"]
     refs.titleLabel.Text = state.Title
     refs.titleLabel.TextColor3 = Theme["text-primary"]
     refs.versionLabel.Text = state.Version or ""
@@ -1516,33 +1760,83 @@ applyWindowMetadata = function(self)
         ).X
         local targetWidth = textWidth + CHIP_PADDING_X
 
-        TweenService:Create(refs.accentChip, CHIP_TWEEN_INFO, {
+        Ui.play(refs.accentChip, CHIP_TWEEN_INFO, {
             Size = UDim2.fromOffset(targetWidth, CHIP_HEIGHT)
-        }):Play()
+        })
     end
     refs.sidebar.BackgroundColor3 = Theme["nav-bg"]
     refs.sidebar.Size = UDim2.new(0, state.SidebarWidth, 1, -TITLE_BAR_HEIGHT)
     refs.sidebar.Visible = sidebarReady
     refs.sidebarStroke.Color = Theme["nav-stroke"]
     refs.sidebarStroke.Thickness = SIDEBAR_STROKE
+    refs.sidebarTopSquare.BackgroundColor3 = Theme["nav-bg"]
+    refs.sidebarRightSquare.BackgroundColor3 = Theme["nav-bg"]
     refs.content.Position = UDim2.fromOffset(state.ShowSidebar and state.SidebarWidth or 0, TITLE_BAR_HEIGHT)
     refs.content.Size = UDim2.new(1, -(state.ShowSidebar and state.SidebarWidth or 0), 1, -TITLE_BAR_HEIGHT)
     refs.content.Visible = contentReady
     refs.topLeftCornerPatch.BackgroundColor3 = Theme["nav-bg"]
-    refs.topLeftCornerPatch.Visible = titleBarVisible
+    refs.topLeftCornerPatch.Visible = false
     refs.topRightCornerPatch.BackgroundColor3 = Theme["nav-bg"]
-    refs.topRightCornerPatch.Visible = titleBarVisible
+    refs.topRightCornerPatch.Visible = false
     refs.bottomLeftCornerPatch.BackgroundColor3 = state.ShowSidebar and Theme["nav-bg"] or Theme.background
-    refs.bottomLeftCornerPatch.Visible = contentReady or sidebarReady
+    refs.bottomLeftCornerPatch.Visible = false
     refs.bottomRightCornerPatch.BackgroundColor3 = Theme.background
-    refs.bottomRightCornerPatch.Visible = contentReady
+    refs.bottomRightCornerPatch.Visible = false
     refs.cursorHorizontal.BackgroundColor3 = Theme.accent
     refs.cursorVertical.BackgroundColor3 = Theme.accent
     refs.titleBar.Visible = titleBarVisible
 
+    applyBlurState(self, false)
+
     for _, tab in ipairs(self._tabs) do
         Tab._applyMetadata(tab)
     end
+end
+
+buildDefaultSettingsPanel = function(self, settingsTab)
+    if self._settingsBuilt or settingsTab == nil then
+        return
+    end
+
+    setInternal(self, "_settingsBuilt", true)
+
+    local settingsGroup = settingsTab:AddGroupbox("leftColumn", {
+        Title = "Preferences",
+    })
+
+    local keybindLabel = settingsGroup:AddLabel("Show/Hide Keybind")
+    local keybindPicker = keybindLabel:AddKeyPicker({
+        Default = self._state.ToggleKeybind,
+        Changed = function(value)
+            self:Set("ToggleKeybind", value)
+        end,
+    })
+
+    local blurToggle = settingsGroup:AddToggle({
+        Text = "Background Blur",
+        Default = self._state.BackgroundBlur,
+        Changed = function(value)
+            self:Set("BackgroundBlur", value)
+        end,
+    })
+
+    settingsGroup:AddDivider()
+
+    local animationToggle = settingsGroup:AddToggle({
+        Text = "Animations",
+        Default = self._state.Animations,
+        Changed = function(value)
+            self:Set("Animations", value)
+        end,
+    })
+
+    setInternal(self, "_settingsControls", {
+        animationToggle = animationToggle,
+        blurToggle = blurToggle,
+        keybindLabel = keybindLabel,
+        keybindPicker = keybindPicker,
+        settingsGroup = settingsGroup,
+    })
 end
 
 local function createState(config)
@@ -1558,6 +1852,9 @@ local function createState(config)
         Resizable = getValue(config.Resizable, DEFAULTS.Resizable),
         SidebarWidth = getValue(config.SidebarWidth, DEFAULTS.SidebarWidth),
         ShowSidebar = getValue(config.ShowSidebar, DEFAULTS.ShowSidebar),
+        ToggleKeybind = normalizePropertyValue("ToggleKeybind", config.ToggleKeybind or config.ShowHideKeybind),
+        BackgroundBlur = normalizePropertyValue("BackgroundBlur", config.BackgroundBlur),
+        Animations = normalizePropertyValue("Animations", config.Animations),
         Visible = visible,
         AutoShow = visible,
     }
@@ -1679,12 +1976,18 @@ function Window.new(parent: Instance, config)
         Instance = frame,
         Parent = parent,
         Tabs = {},
+        _blurEffect = nil,
+        _blurConnection = nil,
+        _blurDriver = nil,
+        _blurTargetVisible = false,
+        _blurTween = nil,
         _connections = {},
         _cursorVisible = false,
         _dragging = false,
         _destroyed = false,
         _groupboxes = {},
         _groupboxConnections = {},
+        _settingsBuilt = false,
         _groupboxDrag = {
             dragging = false,
             groupbox = nil,
@@ -1715,14 +2018,20 @@ function Window.new(parent: Instance, config)
     applyWindowMetadata(self)
     setLoaderProgress(self, 0.08, "Preparing Slate...", true)
     attachInteractions(self)
-    Window.AddTab(self, {
+    local settingsTab = Window.AddTab(self, {
         Title = "Settings",
         Icon = "settings",
         LayoutColumns = 2,
         Order = 9999,
     })
+    buildDefaultSettingsPanel(self, settingsTab)
     setLoaderProgress(self, LOADER_BASE_PROGRESS, "Slate ready", false)
-    scheduleAutoFinish(self)
+
+    if state.Animations then
+        scheduleAutoFinish(self)
+    else
+        forceBootVisible(self)
+    end
 
     return self
 end
@@ -1746,6 +2055,21 @@ function Window:Set(propertyOrProperties, value)
 
     applyWindowMetadata(self)
 
+    local settingsControls = self._settingsControls
+    if settingsControls then
+        if settingsControls.keybindPicker then
+            settingsControls.keybindPicker:SetValue(self._state.ToggleKeybind)
+        end
+
+        if settingsControls.blurToggle then
+            settingsControls.blurToggle:SetValue(self._state.BackgroundBlur)
+        end
+
+        if settingsControls.animationToggle then
+            settingsControls.animationToggle:SetValue(self._state.Animations)
+        end
+    end
+
     return self
 end
 
@@ -1759,6 +2083,10 @@ end
 
 function Window:Hide()
     return self:Set("Visible", false)
+end
+
+function Window:ToggleVisibility()
+    return self:Set("Visible", not self._state.Visible)
 end
 
 function Window:SetTitle(title: string)
@@ -1781,6 +2109,18 @@ function Window:SetSidebarVisible(showSidebar: boolean)
     return self:Set("ShowSidebar", showSidebar)
 end
 
+function Window:SetShowHideKeybind(key)
+    return self:Set("ToggleKeybind", key)
+end
+
+function Window:SetBackgroundBlurEnabled(enabled: boolean)
+    return self:Set("BackgroundBlur", enabled)
+end
+
+function Window:SetAnimationsEnabled(enabled: boolean)
+    return self:Set("Animations", enabled)
+end
+
 function Window:SetSize(size)
     return self:Set("Size", size)
 end
@@ -1793,6 +2133,14 @@ function Window:SetLoaderStatus(text)
     setLoaderProgress(self, self._boot.progress, text, true)
 
     return self
+end
+
+function Window:Notify(config)
+    return Notification.Notify(self, config or {})
+end
+
+function Window:Dialog(config)
+    return Dialog.Open(self, config or {})
 end
 
 function Window:QueueLoadStep(configOrText, weight)
@@ -1854,6 +2202,12 @@ function Window:FinishLoading(text)
         return self
     end
 
+    if not animationsEnabled(self) then
+        setLoaderProgress(self, 1, text or "Ready", true)
+        forceBootVisible(self)
+        return self
+    end
+
     self._boot.revealStarted = true
     setLoaderProgress(self, 1, text or "Ready", false)
 
@@ -1887,6 +2241,10 @@ function Window:AddTab(config)
     table.insert(self._tabs, tab)
     self.Tabs[tab.Title] = tab
     self:_reconcileTabs(tabConfig.Active and tab or nil)
+
+    if string.lower(tab.Title) == "settings" then
+        buildDefaultSettingsPanel(self, tab)
+    end
 
     return tab
 end
@@ -1976,7 +2334,7 @@ function Window:_removeTab(tab)
     end
 
     self.Tabs[tab.Title] = nil
-    self._tabs = nextTabs
+    setInternal(self, "_tabs", nextTabs)
     self:_reconcileTabs(nil)
 end
 
@@ -1998,7 +2356,7 @@ function Window:_removeGroupboxesForTab(tab)
         end
     end
 
-    self._groupboxes = remaining
+    setInternal(self, "_groupboxes", remaining)
     tab._groupboxes = {}
 end
 
@@ -2024,16 +2382,37 @@ function Window:Destroy()
         safeDisconnect(connection)
     end
 
-    self._groupboxConnections = {}
-    self._groupboxes = {}
-    self._tabs = {}
+    setInternal(self, "_groupboxConnections", {})
+    setInternal(self, "_groupboxes", {})
+    setInternal(self, "_tabs", {})
     self.Tabs = {}
 
     for _, connection in ipairs(self._connections) do
         connection:Disconnect()
     end
 
-    self._connections = {}
+    setInternal(self, "_connections", {})
+
+    if self._blurTween then
+        self._blurTween:Cancel()
+        setInternal(self, "_blurTween", nil)
+    end
+
+    if self._blurConnection then
+        self._blurConnection:Disconnect()
+        setInternal(self, "_blurConnection", nil)
+    end
+
+    if self._blurDriver then
+        self._blurDriver:Destroy()
+        setInternal(self, "_blurDriver", nil)
+    end
+
+    if self._blurEffect then
+        self._blurEffect:Destroy()
+        setInternal(self, "_blurEffect", nil)
+    end
+
     self.Instance:Destroy()
 end
 

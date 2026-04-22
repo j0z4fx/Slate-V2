@@ -1,8 +1,5 @@
 local Theme = require(script.Parent.Parent.theme.Theme)
-local Divider = require(script.Parent.Divider)
-local Label = require(script.Parent.Label)
-local Separator = require(script.Parent.Separator)
-local Toggle = require(script.Parent.Toggle)
+local ControlFactory = require(script.Parent.Parent.core.ControlFactory)
 
 local Groupbox = {}
 local GroupboxMeta = {}
@@ -81,12 +78,7 @@ local function createGroupbox(parent)
     titleLabel.ZIndex = titleBar.ZIndex + 1
     titleLabel.Parent = titleBar
 
-    local fontOk, font = pcall(Font.new, "rbxasset://fonts/families/Inter.json", Enum.FontWeight.Medium)
-    if fontOk then
-        titleLabel.FontFace = font
-    else
-        titleLabel.Font = Enum.Font.GothamMedium
-    end
+    titleLabel.Font = Enum.Font.GothamMedium
 
     local separator = Instance.new("Frame")
     separator.Name = "Separator"
@@ -156,61 +148,6 @@ function Groupbox:_syncLayout()
     return self
 end
 
-function Groupbox:AddToggle(configOrText, config)
-    local toggleConfig
-
-    if type(configOrText) == "table" then
-        toggleConfig = configOrText
-    else
-        toggleConfig = config or {}
-        toggleConfig.Text = configOrText
-    end
-
-    local toggle = Toggle.new(self.Content, toggleConfig)
-    table.insert(self.Controls, toggle)
-
-    return toggle
-end
-
-function Groupbox:AddDivider()
-    local divider = Divider.new(self.Content)
-    table.insert(self.Controls, divider)
-
-    return divider
-end
-
-function Groupbox:AddSeparator(configOrText, config)
-    local separatorConfig
-
-    if type(configOrText) == "table" then
-        separatorConfig = configOrText
-    else
-        separatorConfig = config or {}
-        separatorConfig.Text = configOrText
-    end
-
-    local separator = Separator.new(self.Content, separatorConfig)
-    table.insert(self.Controls, separator)
-
-    return separator
-end
-
-function Groupbox:AddLabel(configOrText, config)
-    local labelConfig
-
-    if type(configOrText) == "table" then
-        labelConfig = configOrText
-    else
-        labelConfig = config or {}
-        labelConfig.Text = configOrText
-    end
-
-    local label = Label.new(self.Content, labelConfig)
-    table.insert(self.Controls, label)
-
-    return label
-end
-
 function Groupbox:SetPlacement(column, layoutOrder)
     self.Column = column
     self.LayoutOrder = layoutOrder
@@ -225,6 +162,12 @@ function GroupboxMeta.__index(self, key)
     if method ~= nil then
         return method
     end
+
+    local factoryMethod = ControlFactory[key]
+    if factoryMethod ~= nil then
+        return factoryMethod
+    end
+
     return rawget(self, key)
 end
 
