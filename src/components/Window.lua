@@ -273,7 +273,7 @@ local function createTabContent(content)
     tabContent.Parent = content
 
     local padding = Instance.new("UIPadding")
-    padding.PaddingLeft = UDim.new(0, COLUMN_GAP)
+    padding.PaddingLeft = UDim.new(0, 0)
     padding.PaddingRight = UDim.new(0, COLUMN_GAP)
     padding.PaddingTop = UDim.new(0, COLUMN_GAP)
     padding.Parent = tabContent
