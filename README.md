@@ -15,7 +15,7 @@ local window = Slate:CreateWindow({
     Width = 960,
     Height = 540,
     Resizable = true,
-    SidebarWidth = 220,
+    SidebarWidth = 55,
     ShowSidebar = true,
     AutoShow = true,
 })

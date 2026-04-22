@@ -3,6 +3,7 @@ local Slate = {}
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local protectGui = protectgui or (syn and syn.protect_gui) or function() end
 local getHiddenUi = gethui
@@ -12,6 +13,9 @@ local CHIP_TEXT = "SLATE"
 local TITLE_BAR_HEIGHT = 36
 local TITLE_BAR_STROKE = 1
 local SIDEBAR_STROKE = 1
+local CURSOR_SIZE = 16
+local CURSOR_LINE_THICKNESS = 2
+local DEFAULT_SIDEBAR_WIDTH = math.floor((48 * 1.15) + 0.5)
 
 Slate.Theme = {
     background = Color3.fromRGB(15, 15, 24),
@@ -28,9 +32,22 @@ local DEFAULTS = {
     Width = 960,
     Height = 540,
     Resizable = true,
-    SidebarWidth = 48,
+    SidebarWidth = DEFAULT_SIDEBAR_WIDTH,
     ShowSidebar = true,
     AutoShow = true,
+}
+
+local LIVE_PROPERTIES = {
+    AutoShow = true,
+    Height = true,
+    Resizable = true,
+    ShowSidebar = true,
+    SidebarWidth = true,
+    Size = true,
+    Title = true,
+    Version = true,
+    Visible = true,
+    Width = true,
 }
 
 local function getValue(value, fallback)
@@ -133,19 +150,6 @@ end
 local Window = {}
 local WindowMeta = {}
 
-local LIVE_PROPERTIES = {
-    AutoShow = true,
-    Height = true,
-    Resizable = true,
-    ShowSidebar = true,
-    SidebarWidth = true,
-    Size = true,
-    Title = true,
-    Version = true,
-    Visible = true,
-    Width = true,
-}
-
 local function resolveSize(config)
     if typeof(config.Size) == "UDim2" then
         return config.Size
@@ -173,9 +177,49 @@ local function createTextLabel(name, font, textSize, textColor, zIndex)
     return label
 end
 
+local function createCursor(frame)
+    local cursor = Instance.new("Frame")
+    cursor.Name = "Cursor"
+    cursor.AnchorPoint = Vector2.new(0.5, 0.5)
+    cursor.BackgroundTransparency = 1
+    cursor.BorderSizePixel = 0
+    cursor.Size = UDim2.fromOffset(CURSOR_SIZE, CURSOR_SIZE)
+    cursor.Visible = false
+    cursor.ZIndex = frame.ZIndex + 10
+    cursor:SetAttribute("SlateComponent", "Cursor")
+    cursor.Parent = frame
+
+    local horizontal = Instance.new("Frame")
+    horizontal.Name = "Horizontal"
+    horizontal.AnchorPoint = Vector2.new(0.5, 0.5)
+    horizontal.BackgroundColor3 = Slate.Theme.accent
+    horizontal.BorderSizePixel = 0
+    horizontal.Position = UDim2.fromScale(0.5, 0.5)
+    horizontal.Size = UDim2.fromOffset(CURSOR_SIZE, CURSOR_LINE_THICKNESS)
+    horizontal.ZIndex = cursor.ZIndex
+    horizontal.Parent = cursor
+
+    local vertical = Instance.new("Frame")
+    vertical.Name = "Vertical"
+    vertical.AnchorPoint = Vector2.new(0.5, 0.5)
+    vertical.BackgroundColor3 = Slate.Theme.accent
+    vertical.BorderSizePixel = 0
+    vertical.Position = UDim2.fromScale(0.5, 0.5)
+    vertical.Size = UDim2.fromOffset(CURSOR_LINE_THICKNESS, CURSOR_SIZE)
+    vertical.ZIndex = cursor.ZIndex
+    vertical.Parent = cursor
+
+    return {
+        cursor = cursor,
+        cursorHorizontal = horizontal,
+        cursorVertical = vertical,
+    }
+end
+
 local function createTitleBar(frame)
     local titleBar = Instance.new("Frame")
     titleBar.Name = "TitleBar"
+    titleBar.Active = true
     titleBar.BackgroundColor3 = Slate.Theme["nav-bg"]
     titleBar.BorderSizePixel = 0
     titleBar.Position = UDim2.fromOffset(0, 0)
@@ -272,6 +316,84 @@ local function createSidebar(frame)
     }
 end
 
+local function connect(self, signal, callback)
+    local connection = signal:Connect(callback)
+    table.insert(self._connections, connection)
+
+    return connection
+end
+
+local function updateCursorPosition(self, mouseLocation)
+    local refs = self._refs
+
+    refs.cursor.Position = UDim2.fromOffset(
+        mouseLocation.X - self.Instance.AbsolutePosition.X,
+        mouseLocation.Y - self.Instance.AbsolutePosition.Y
+    )
+end
+
+local function setCursorVisible(self, isVisible)
+    self._cursorVisible = isVisible
+    self._refs.cursor.Visible = isVisible
+    UserInputService.MouseIconEnabled = not isVisible
+
+    if isVisible then
+        updateCursorPosition(self, UserInputService:GetMouseLocation())
+    end
+end
+
+local function attachInteractions(self)
+    local refs = self._refs
+
+    connect(self, self.Instance.MouseEnter, function()
+        setCursorVisible(self, true)
+    end)
+
+    connect(self, self.Instance.MouseLeave, function()
+        setCursorVisible(self, false)
+    end)
+
+    connect(self, refs.titleBar.InputBegan, function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+            return
+        end
+
+        self._dragging = true
+        self._dragStart = input.Position
+        self._dragOrigin = self.Instance.Position
+    end)
+
+    connect(self, refs.titleBar.InputEnded, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            self._dragging = false
+        end
+    end)
+
+    connect(self, UserInputService.InputChanged, function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement then
+            return
+        end
+
+        if self._cursorVisible then
+            updateCursorPosition(self, input.Position)
+        end
+
+        if not self._dragging then
+            return
+        end
+
+        local delta = input.Position - self._dragStart
+        local origin = self._dragOrigin
+
+        self.Instance.Position = UDim2.new(
+            origin.X.Scale,
+            origin.X.Offset + delta.X,
+            origin.Y.Scale,
+            origin.Y.Offset + delta.Y
+        )
+    end)
+end
+
 local function applyMetadata(self)
     local state = self._state
     local refs = self._refs
@@ -301,6 +423,8 @@ local function applyMetadata(self)
     refs.sidebar.Visible = state.ShowSidebar
     refs.sidebarStroke.Color = Slate.Theme["nav-stroke"]
     refs.sidebarStroke.Thickness = SIDEBAR_STROKE
+    refs.cursorHorizontal.BackgroundColor3 = Slate.Theme.accent
+    refs.cursorVertical.BackgroundColor3 = Slate.Theme.accent
 end
 
 local function createState(config)
@@ -439,6 +563,14 @@ function Window:Destroy()
     end
 
     self._destroyed = true
+    self._dragging = false
+    setCursorVisible(self, false)
+
+    for _, connection in ipairs(self._connections) do
+        connection:Disconnect()
+    end
+
+    self._connections = {}
     self.Instance:Destroy()
 end
 
@@ -510,16 +642,23 @@ function Slate:CreateWindow(config)
     for key, value in pairs(createSidebar(frame)) do
         refs[key] = value
     end
+    for key, value in pairs(createCursor(frame)) do
+        refs[key] = value
+    end
 
     local window = setmetatable({
         Instance = frame,
         Parent = target,
+        _connections = {},
+        _cursorVisible = false,
+        _dragging = false,
         _destroyed = false,
         _refs = refs,
         _state = createState(windowConfig),
     }, WindowMeta)
 
     applyMetadata(window)
+    attachInteractions(window)
 
     return window
 end
