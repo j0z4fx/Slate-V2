@@ -27,14 +27,17 @@ local function resolveContainer()
     end
 
     local localPlayer = Players.LocalPlayer
-    if RunService:IsStudio() and localPlayer then
-        local playerGui = localPlayer:FindFirstChildOfClass("PlayerGui") or localPlayer:WaitForChild("PlayerGui")
-        if playerGui then
-            return playerGui
-        end
+    local playerGui = localPlayer and (localPlayer:FindFirstChildOfClass("PlayerGui") or localPlayer:WaitForChild("PlayerGui"))
+
+    if RunService:IsStudio() and playerGui then
+        return playerGui
     end
 
-    return CoreGui
+    if CoreGui then
+        return CoreGui
+    end
+
+    return playerGui
 end
 
 local function findOwnedRoot(container)
@@ -136,7 +139,7 @@ local TabMeta = {}
 
 local ACTIVE_FILL_TRANSPARENCY = 0.84
 local ACTIVE_ICON_TRANSPARENCY = 0.1
-local ACTIVE_LINE_WIDTH = 1
+local ACTIVE_LINE_WIDTH = 3
 local DEFAULT_ICON = "circle-question-mark"
 local TAB_HEIGHT = 48
 local TAB_ICON_SIZE = 20
@@ -415,12 +418,17 @@ function TabMeta.__newindex(self, key, value)
     error(string.format("Unsupported tab property %q", tostring(key)))
 end
 
+local TweenService = game:GetService("TweenService")
+local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
-
 
 local Window = {}
 local WindowMeta = {}
-local CHIP_TEXT = "SLATE"
+local CHIP_FONT = Enum.Font.GothamBold
+local CHIP_FONT_SIZE = 12
+local CHIP_HEIGHT = 20
+local CHIP_PADDING_X = 24
+local CHIP_TWEEN_INFO = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local TITLE_BAR_HEIGHT = 36
 local TITLE_BAR_STROKE = 1
 local SIDEBAR_STROKE = 1
@@ -614,7 +622,7 @@ local function createTitleBar(frame: Frame)
     accentChip.BackgroundTransparency = 0.84
     accentChip.BorderSizePixel = 0
     accentChip.Position = UDim2.fromScale(0.5, 0.5)
-    accentChip.Size = UDim2.fromOffset(74, 20)
+    accentChip.Size = UDim2.fromOffset(74, CHIP_HEIGHT)
     accentChip.ZIndex = titleBar.ZIndex + 1
     accentChip:SetAttribute("SlateComponent", "AccentChip")
     accentChip.Parent = titleBar
@@ -623,9 +631,9 @@ local function createTitleBar(frame: Frame)
     accentCorner.CornerRadius = UDim.new(1, 0)
     accentCorner.Parent = accentChip
 
-    local accentLabel = createTextLabel("ChipLabel", Enum.Font.GothamBold, 12, Theme.accent, accentChip.ZIndex + 1)
+    local accentLabel = createTextLabel("ChipLabel", CHIP_FONT, CHIP_FONT_SIZE, Theme.accent, accentChip.ZIndex + 1)
     accentLabel.Size = UDim2.fromScale(1, 1)
-    accentLabel.Text = CHIP_TEXT
+    accentLabel.Text = ""
     accentLabel.TextXAlignment = Enum.TextXAlignment.Center
     accentLabel.Parent = accentChip
 
@@ -810,8 +818,28 @@ local function applyMetadata(self)
     refs.versionLabel.Visible = state.Version ~= nil
     refs.accentChip.BackgroundColor3 = Theme.accent
     refs.accentChip.BackgroundTransparency = 0.84
-    refs.accentLabel.Text = CHIP_TEXT
     refs.accentLabel.TextColor3 = Theme.accent
+
+    local activeTabTitle = "Slate"
+    for _, tab in ipairs(self._tabs) do
+        if tab.Active and tab.Visible then
+            activeTabTitle = tab.Title
+            break
+        end
+    end
+
+    if refs.accentLabel.Text ~= activeTabTitle then
+        refs.accentLabel.Text = activeTabTitle
+
+        local textWidth = TextService:GetTextSize(
+            activeTabTitle, CHIP_FONT_SIZE, CHIP_FONT, Vector2.new(math.huge, math.huge)
+        ).X
+        local targetWidth = textWidth + CHIP_PADDING_X
+
+        TweenService:Create(refs.accentChip, CHIP_TWEEN_INFO, {
+            Size = UDim2.fromOffset(targetWidth, CHIP_HEIGHT)
+        }):Play()
+    end
     refs.sidebar.BackgroundColor3 = Theme["nav-bg"]
     refs.sidebar.Size = UDim2.new(0, state.SidebarWidth, 1, -TITLE_BAR_HEIGHT)
     refs.sidebar.Visible = state.ShowSidebar
