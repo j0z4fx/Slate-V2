@@ -5,8 +5,8 @@ local KeyPicker = {}
 local KeyPickerMeta = {}
 
 local BUTTON_HEIGHT = 18
-local BUTTON_MIN_WIDTH = 42
 local CORNER_RADIUS = 4
+local PADDING_X = 8
 
 local LIVE_PROPERTIES = {
     Mode = true,
@@ -68,7 +68,7 @@ local function createKeyPicker(parent)
     button.AutomaticSize = Enum.AutomaticSize.X
     button.BackgroundColor3 = Theme["toggle-body"]
     button.BorderSizePixel = 0
-    button.Size = UDim2.fromOffset(BUTTON_MIN_WIDTH, BUTTON_HEIGHT)
+    button.Size = UDim2.fromOffset(0, BUTTON_HEIGHT)
     button.Text = ""
     button.Parent = parent
 
@@ -81,7 +81,8 @@ local function createKeyPicker(parent)
     overlay.BackgroundColor3 = Theme.accent
     overlay.BackgroundTransparency = 1
     overlay.BorderSizePixel = 0
-    overlay.Size = UDim2.fromScale(1, 1)
+    overlay.Position = UDim2.new(0, -PADDING_X, 0, 0)
+    overlay.Size = UDim2.new(1, PADDING_X * 2, 1, 0)
     overlay.Parent = button
 
     local overlayCorner = Instance.new("UICorner")
@@ -95,8 +96,8 @@ local function createKeyPicker(parent)
     stroke.Parent = button
 
     local padding = Instance.new("UIPadding")
-    padding.PaddingLeft = UDim.new(0, 8)
-    padding.PaddingRight = UDim.new(0, 8)
+    padding.PaddingLeft = UDim.new(0, PADDING_X)
+    padding.PaddingRight = UDim.new(0, PADDING_X)
     padding.Parent = button
 
     local label = Instance.new("TextLabel")
@@ -105,7 +106,7 @@ local function createKeyPicker(parent)
     label.BackgroundTransparency = 1
     label.BorderSizePixel = 0
     label.Font = Enum.Font.Gotham
-    label.Size = UDim2.new(0, 0, 1, 0)
+    label.Size = UDim2.new(0, 0, 0, BUTTON_HEIGHT)
     label.TextColor3 = Theme["text-secondary"]
     label.TextSize = 11
     label.TextXAlignment = Enum.TextXAlignment.Center
