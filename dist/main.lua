@@ -10,7 +10,6 @@ local Theme = {
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local protectGui = protectgui or (syn and syn.protect_gui) or function() end
 local getHiddenUi = gethui
@@ -89,7 +88,12 @@ end
 
 local Lucide = {}
 
-local SOURCE_URL = "https://raw.githubusercontent.com/deividcomsono/lucide-roblox-direct/refs/heads/main/lucide.lua"
+local SOURCE_URL = "https://github.com/latte-soft/lucide-roblox/releases/latest/download/lucide-roblox.luau"
+
+local ICON_ALIASES = {
+    ["circle-question-mark"] = "help-circle",
+    house = "home",
+}
 
 local cachedModule = nil
 local warned = false
@@ -109,7 +113,9 @@ end
 
 function Lucide.GetAsset(name)
     local success, result = pcall(function()
-        return resolveModule().GetAsset(name)
+        local iconName = ICON_ALIASES[name] or name
+
+        return resolveModule().GetAsset(iconName, 48)
     end)
 
     if success then
@@ -408,6 +414,8 @@ function TabMeta.__newindex(self, key, value)
 
     error(string.format("Unsupported tab property %q", tostring(key)))
 end
+
+local UserInputService = game:GetService("UserInputService")
 
 
 local Window = {}

@@ -1,6 +1,11 @@
 local Lucide = {}
 
-local SOURCE_URL = "https://raw.githubusercontent.com/deividcomsono/lucide-roblox-direct/refs/heads/main/lucide.lua"
+local SOURCE_URL = "https://github.com/latte-soft/lucide-roblox/releases/latest/download/lucide-roblox.luau"
+
+local ICON_ALIASES = {
+    ["circle-question-mark"] = "help-circle",
+    house = "home",
+}
 
 local cachedModule = nil
 local warned = false
@@ -20,7 +25,9 @@ end
 
 function Lucide.GetAsset(name)
     local success, result = pcall(function()
-        return resolveModule().GetAsset(name)
+        local iconName = ICON_ALIASES[name] or name
+
+        return resolveModule().GetAsset(iconName, 48)
     end)
 
     if success then
