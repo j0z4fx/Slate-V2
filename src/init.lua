@@ -1,8 +1,10 @@
 local Theme = require(script.theme.Theme)
+local ColorPicker = require(script.components.ColorPicker)
 local Root = require(script.core.Root)
 local Window = require(script.components.Window)
 local Divider = require(script.components.Divider)
 local Groupbox = require(script.components.Groupbox)
+local KeyPicker = require(script.components.KeyPicker)
 local Label = require(script.components.Label)
 local Separator = require(script.components.Separator)
 local Toggle = require(script.components.Toggle)
@@ -19,8 +21,10 @@ runtime.__SlateMountedWindows = runtime.__SlateMountedWindows or {}
 local mountedWindows = runtime.__SlateMountedWindows
 
 Slate.Theme = Theme
+Slate.ColorPicker = ColorPicker
 Slate.Divider = Divider
 Slate.Groupbox = Groupbox
+Slate.KeyPicker = KeyPicker
 Slate.Label = Label
 Slate.Separator = Separator
 Slate.Toggle = Toggle

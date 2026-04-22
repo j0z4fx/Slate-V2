@@ -27,7 +27,18 @@ HomeGroup:AddLabel({
 })
 HomeGroup:AddDivider()
 HomeGroup:AddSeparator("Separator")
-HomeGroup:AddToggle({
+local ExampleToggle = HomeGroup:AddToggle({
     Text = "Example Toggle",
     Default = false,
+})
+
+ExampleToggle:AddColorPicker({
+    Title = "Toggle Color",
+    Default = Color3.fromRGB(255, 91, 155),
+})
+
+ExampleToggle:AddKeyPicker({
+    Default = "RightShift",
+    Mode = "Toggle",
+    SyncToggleState = false,
 })

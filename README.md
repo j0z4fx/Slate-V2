@@ -46,6 +46,16 @@ local Toggle = Group:AddToggle({
     Text = "Example Toggle",
     Default = false,
 })
+
+Toggle:AddColorPicker({
+    Title = "Toggle Color",
+    Default = Color3.fromRGB(255, 91, 155),
+})
+
+Toggle:AddKeyPicker({
+    Default = "RightShift",
+    Mode = "Toggle",
+})
 ```
 
 ## How It Works
@@ -199,6 +209,13 @@ Toggle:OnChanged(function(value) end)
 Toggle:Set(property, value)
 Toggle:Update(properties)
 Toggle:Destroy()
+```
+
+Toggle addons:
+
+```lua
+Toggle:AddColorPicker(config)
+Toggle:AddKeyPicker(config)
 ```
 
 Live toggle properties:

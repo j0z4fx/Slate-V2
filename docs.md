@@ -184,6 +184,16 @@ local Toggle = Box:AddToggle({
         print(value)
     end,
 })
+
+local Picker = Toggle:AddColorPicker({
+    Title = "Toggle Color",
+    Default = Color3.fromRGB(255, 91, 155),
+})
+
+local Bind = Toggle:AddKeyPicker({
+    Default = "RightShift",
+    Mode = "Toggle",
+})
 ```
 
 ### Toggle Config
@@ -211,6 +221,68 @@ Toggle:Toggle()
 Toggle:OnChanged(callback)
 Toggle:Destroy()
 ```
+
+### Toggle Addons
+
+```lua
+Toggle:AddColorPicker(config)
+Toggle:AddKeyPicker(config)
+```
+
+These mount inline to the right side of the toggle row.
+
+## Color Picker
+
+Color pickers are currently exposed as toggle addons.
+
+```lua
+local Picker = Toggle:AddColorPicker({
+    Title = "Accent",
+    Default = Color3.fromRGB(255, 91, 155),
+    Callback = function(value)
+        print(value)
+    end,
+})
+```
+
+### Color Picker Methods
+
+```lua
+Picker:SetValue(Color3.fromRGB(255, 0, 0))
+Picker:OnChanged(function(value) end)
+Picker:Open()
+Picker:Close()
+Picker:Destroy()
+```
+
+## Key Picker
+
+Key pickers are currently exposed as toggle addons.
+
+```lua
+local Bind = Toggle:AddKeyPicker({
+    Default = "RightShift",
+    Mode = "Toggle",
+    SyncToggleState = false,
+})
+```
+
+### Key Picker Methods
+
+```lua
+Bind:SetValue("F")
+Bind:SetMode("Hold")
+Bind:GetState()
+Bind:OnChanged(function(value) end)
+Bind:OnClick(function(value) end)
+Bind:Destroy()
+```
+
+Supported modes:
+
+- `Toggle`
+- `Hold`
+- `Always`
 
 ### Toggle Style
 

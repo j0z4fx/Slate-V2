@@ -1,4 +1,6 @@
 local Theme = require(script.Parent.Parent.theme.Theme)
+local ColorPicker = require(script.Parent.ColorPicker)
+local KeyPicker = require(script.Parent.KeyPicker)
 local TweenService = game:GetService("TweenService")
 
 local Toggle = {}
@@ -10,6 +12,7 @@ local ROW_HEIGHT = 20
 local SWITCH_WIDTH = 34
 local SWITCH_HEIGHT = 20
 local SWITCH_PADDING = 2
+local RIGHT_GAP = 6
 local TOGGLE_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
 local LIVE_PROPERTIES = {
@@ -71,6 +74,24 @@ local function createToggle(parent)
     label.TextYAlignment = Enum.TextYAlignment.Center
     label.Parent = button
 
+    local addonRow = Instance.new("Frame")
+    addonRow.Name = "AddonRow"
+    addonRow.AnchorPoint = Vector2.new(1, 0.5)
+    addonRow.AutomaticSize = Enum.AutomaticSize.X
+    addonRow.BackgroundTransparency = 1
+    addonRow.BorderSizePixel = 0
+    addonRow.Position = UDim2.new(1, -(SWITCH_WIDTH + RIGHT_GAP), 0.5, 0)
+    addonRow.Size = UDim2.fromOffset(0, ROW_HEIGHT)
+    addonRow.Parent = button
+
+    local addonLayout = Instance.new("UIListLayout")
+    addonLayout.FillDirection = Enum.FillDirection.Horizontal
+    addonLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+    addonLayout.Padding = UDim.new(0, 6)
+    addonLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    addonLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    addonLayout.Parent = addonRow
+
     local switch = Instance.new("Frame")
     switch.Name = "Switch"
     switch.AnchorPoint = Vector2.new(1, 0.5)
@@ -106,10 +127,37 @@ local function createToggle(parent)
     return {
         button = button,
         label = label,
+        addonLayout = addonLayout,
+        addonRow = addonRow,
         switch = switch,
         switchStroke = switchStroke,
         dot = dot,
     }
+end
+
+local function updateLayout(self)
+    local refs = self._refs
+    local addonWidth = refs.addonRow.AbsoluteSize.X
+    if addonWidth <= 0 then
+        addonWidth = 0
+        for _, addon in ipairs(self._addons) do
+            if addon.Instance then
+                addonWidth += addon.Instance.Size.X.Offset
+            end
+        end
+
+        if #self._addons > 1 then
+            addonWidth += (#self._addons - 1) * refs.addonLayout.Padding.Offset
+        end
+    end
+
+    local reservedWidth = SWITCH_WIDTH + 10 + addonWidth
+    if addonWidth > 0 then
+        reservedWidth += RIGHT_GAP
+    end
+
+    refs.addonRow.Position = UDim2.new(1, -(SWITCH_WIDTH + RIGHT_GAP), 0.5, 0)
+    refs.label.Size = UDim2.new(1, -reservedWidth, 1, 0)
 end
 
 local function stopTween(tween)
@@ -136,6 +184,7 @@ local function applyMetadata(self, instant)
     refs.button.Active = not disabled
     refs.button.Visible = state.Visible
     refs.label.Text = state.Text
+    updateLayout(self)
 
     stopTween(self._tweens.label)
     stopTween(self._tweens.switch)
@@ -190,6 +239,7 @@ function Toggle.new(parent, config)
         Instance = refs.button,
         Parent = parent,
         _destroyed = false,
+        _addons = {},
         _onChanged = cfg.Changed or cfg.Callback,
         _refs = refs,
         _state = {
@@ -273,6 +323,22 @@ function Toggle:OnChanged(callback)
     return self
 end
 
+function Toggle:AddColorPicker(config)
+    local colorPicker = ColorPicker.new(self, config or {})
+    table.insert(self._addons, colorPicker)
+    updateLayout(self)
+
+    return colorPicker
+end
+
+function Toggle:AddKeyPicker(config)
+    local keyPicker = KeyPicker.new(self, config or {})
+    table.insert(self._addons, keyPicker)
+    updateLayout(self)
+
+    return keyPicker
+end
+
 function Toggle:Destroy()
     if self._destroyed then
         return
@@ -280,6 +346,11 @@ function Toggle:Destroy()
 
     self._destroyed = true
 
+    for _, addon in ipairs(self._addons) do
+        addon:Destroy()
+    end
+
+    self._addons = {}
     for _, tween in pairs(self._tweens) do
         stopTween(tween)
     end
