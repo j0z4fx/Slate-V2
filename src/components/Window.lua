@@ -20,7 +20,7 @@ local DEFAULT_SIDEBAR_WIDTH = math.floor((48 * 1.15) + 0.5)
 local COLUMN_GAP = 8
 local COLUMN_OFFSET = -math.floor(2 * COLUMN_GAP / 3)
 local CONTENT_PADDING = 6
-local FADE_HEIGHT = 10
+local FADE_HEIGHT = 20
 
 local DEFAULTS = {
     Title = "Slate",
@@ -277,7 +277,7 @@ local function createTabContent(content)
     local function makeColumn(name, order)
         local col = Instance.new("Frame")
         col.Name = name
-        col.BackgroundColor3 = Theme.accent
+        col.BackgroundTransparency = 1
         col.BorderSizePixel = 0
         col.LayoutOrder = order
         col.Size = UDim2.new(1 / 3, COLUMN_OFFSET, 1, 0)
