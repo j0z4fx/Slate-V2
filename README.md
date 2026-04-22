@@ -4,15 +4,15 @@ UI library source lives in `src/`.
 
 Loader:
 ```lua
-local Slate = loadstring(game:HttpGet("https://raw.githubusercontent.com/j0z4fx/Slate-V2/refs/heads/main/loader.lua"))()
+local Slate = loadstring(game:HttpGet("https://raw.githubusercontent.com/j0z4fx/Slate-V2/main/loader.lua"))()
 ```
 
 Current API:
 ```lua
 local window = Slate:CreateWindow({
-    Height = 540,
-    Width = 960,
     Title = "Slate",
+    Width = 960,
+    Height = 540,
     Resizable = true,
     SidebarWidth = 220,
     ShowSidebar = true,

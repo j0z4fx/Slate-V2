@@ -21,6 +21,14 @@ local DEFAULTS = {
     AutoShow = true,
 }
 
+local function getValue(value, fallback)
+    if value == nil then
+        return fallback
+    end
+
+    return value
+end
+
 local function getOrCreateRoot()
     local container = nil
 
@@ -64,8 +72,8 @@ local function resolveSize(config)
         return config.Size
     end
 
-    local width = config.Width or DEFAULTS.Width
-    local height = config.Height or DEFAULTS.Height
+    local width = getValue(config.Width, DEFAULTS.Width)
+    local height = getValue(config.Height, DEFAULTS.Height)
 
     return UDim2.fromOffset(width, height)
 end
@@ -137,7 +145,7 @@ function Window:SetSize(size)
     if typeof(size) == "UDim2" then
         self.Size = size
     else
-        self.Size = UDim2.fromOffset(size.Width or DEFAULTS.Width, size.Height or DEFAULTS.Height)
+        self.Size = UDim2.fromOffset(getValue(size.Width, DEFAULTS.Width), getValue(size.Height, DEFAULTS.Height))
     end
 
     applyMetadata(self)
@@ -163,12 +171,12 @@ function Slate:CreateWindow(config)
     local window = setmetatable({
         Instance = frame,
         Parent = target,
-        Title = windowConfig.Title or DEFAULTS.Title,
+        Title = getValue(windowConfig.Title, DEFAULTS.Title),
         Size = resolveSize(windowConfig),
-        Resizable = if windowConfig.Resizable == nil then DEFAULTS.Resizable else windowConfig.Resizable,
-        SidebarWidth = windowConfig.SidebarWidth or DEFAULTS.SidebarWidth,
-        ShowSidebar = if windowConfig.ShowSidebar == nil then DEFAULTS.ShowSidebar else windowConfig.ShowSidebar,
-        Visible = if windowConfig.AutoShow == nil then DEFAULTS.AutoShow else windowConfig.AutoShow,
+        Resizable = getValue(windowConfig.Resizable, DEFAULTS.Resizable),
+        SidebarWidth = getValue(windowConfig.SidebarWidth, DEFAULTS.SidebarWidth),
+        ShowSidebar = getValue(windowConfig.ShowSidebar, DEFAULTS.ShowSidebar),
+        Visible = getValue(windowConfig.AutoShow, DEFAULTS.AutoShow),
     }, Window)
 
     applyMetadata(window)

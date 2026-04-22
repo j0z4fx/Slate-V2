@@ -13,13 +13,21 @@ local DEFAULTS = {
     AutoShow = true,
 }
 
+local function getValue(value, fallback)
+    if value == nil then
+        return fallback
+    end
+
+    return value
+end
+
 local function resolveSize(config)
     if typeof(config.Size) == "UDim2" then
         return config.Size
     end
 
-    local width = config.Width or DEFAULTS.Width
-    local height = config.Height or DEFAULTS.Height
+    local width = getValue(config.Width, DEFAULTS.Width)
+    local height = getValue(config.Height, DEFAULTS.Height)
 
     return UDim2.fromOffset(width, height)
 end
@@ -45,12 +53,12 @@ function Window.new(parent: Instance, config)
     local self = setmetatable({
         Instance = frame,
         Parent = parent,
-        Title = config.Title or DEFAULTS.Title,
+        Title = getValue(config.Title, DEFAULTS.Title),
         Size = resolveSize(config),
-        Resizable = if config.Resizable == nil then DEFAULTS.Resizable else config.Resizable,
-        SidebarWidth = config.SidebarWidth or DEFAULTS.SidebarWidth,
-        ShowSidebar = if config.ShowSidebar == nil then DEFAULTS.ShowSidebar else config.ShowSidebar,
-        Visible = if config.AutoShow == nil then DEFAULTS.AutoShow else config.AutoShow,
+        Resizable = getValue(config.Resizable, DEFAULTS.Resizable),
+        SidebarWidth = getValue(config.SidebarWidth, DEFAULTS.SidebarWidth),
+        ShowSidebar = getValue(config.ShowSidebar, DEFAULTS.ShowSidebar),
+        Visible = getValue(config.AutoShow, DEFAULTS.AutoShow),
     }, Window)
 
     applyMetadata(self)
@@ -104,7 +112,7 @@ function Window:SetSize(size)
     if typeof(size) == "UDim2" then
         self.Size = size
     else
-        self.Size = UDim2.fromOffset(size.Width or DEFAULTS.Width, size.Height or DEFAULTS.Height)
+        self.Size = UDim2.fromOffset(getValue(size.Width, DEFAULTS.Width), getValue(size.Height, DEFAULTS.Height))
     end
 
     applyMetadata(self)
