@@ -6,15 +6,18 @@ local Window = Slate:CreateWindow({
     Height = 540,
 })
 
-Window:AddTab({
+local Home = Window:AddTab({
     Title = "Home",
     Icon = "house",
     Active = true,
 })
 
-Window:AddTab({
+local Profile = Window:AddTab({
     Title = "Profile",
     Icon = "user-round",
 })
 
-Window:AddGroupbox(Window.leftColumn, { Title = "General" })
+Home:AddGroupbox("leftColumn", { Title = "General" })
+Profile:AddGroupbox("leftColumn", { Title = "Profile" })
+Window.Tabs.Settings:AddGroupbox("leftColumn", { Title = "Settings" })
+Window.Tabs.Settings:AddGroupbox("middleColumn", { Title = "Advanced" })

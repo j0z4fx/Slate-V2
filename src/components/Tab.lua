@@ -7,6 +7,8 @@ local TabMeta = {}
 local ACTIVE_FILL_TRANSPARENCY = 0.84
 local ACTIVE_ICON_TRANSPARENCY = 0.1
 local ACTIVE_LINE_WIDTH = 3
+local COLUMN_GAP = 8
+local FADE_HEIGHT = 20
 local DEFAULT_ICON = "circle-question-mark"
 local TAB_HEIGHT = 48
 local TAB_ICON_SIZE = 20
@@ -22,6 +24,7 @@ local LIVE_PROPERTIES = {
 local DEFAULTS = {
     Active = false,
     Icon = DEFAULT_ICON,
+    LayoutColumns = 3,
     Order = 0,
     Title = "Tab",
     Visible = true,
@@ -52,6 +55,12 @@ local function normalizePropertyValue(property, value)
 
     if property == "Order" then
         return tonumber(getValue(value, DEFAULTS.Order)) or DEFAULTS.Order
+    end
+
+    if property == "LayoutColumns" then
+        local columns = tonumber(getValue(value, DEFAULTS.LayoutColumns)) or DEFAULTS.LayoutColumns
+
+        return math.clamp(columns, 1, 3)
     end
 
     if property == "Title" then
@@ -129,6 +138,96 @@ local function createButton(window, order)
     }
 end
 
+local function createColumnFade(parent, zIndex)
+    local fade = Instance.new("Frame")
+    fade.Name = "BottomFade"
+    fade.AnchorPoint = Vector2.new(0, 1)
+    fade.BackgroundColor3 = Theme.background
+    fade.BorderSizePixel = 0
+    fade.Position = UDim2.new(0, 0, 1, 0)
+    fade.Size = UDim2.new(1, 0, 0, FADE_HEIGHT)
+    fade.ZIndex = zIndex + 1
+    fade.Parent = parent
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(1, 0),
+    })
+    gradient.Rotation = 90
+    gradient.Parent = fade
+end
+
+local function createPageLayout(page, columnCount)
+    local tabContent = Instance.new("Frame")
+    tabContent.Name = "tabContent"
+    tabContent.BackgroundTransparency = 1
+    tabContent.BorderSizePixel = 0
+    tabContent.Size = UDim2.fromScale(1, 1)
+    tabContent.ZIndex = page.ZIndex
+    tabContent.Parent = page
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, COLUMN_GAP)
+    padding.PaddingRight = UDim.new(0, COLUMN_GAP)
+    padding.PaddingTop = UDim.new(0, COLUMN_GAP)
+    padding.Parent = tabContent
+
+    local layout = Instance.new("UIListLayout")
+    layout.FillDirection = Enum.FillDirection.Horizontal
+    layout.Padding = UDim.new(0, COLUMN_GAP)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = tabContent
+
+    local sizeOffset = -math.floor(((columnCount - 1) * COLUMN_GAP) / columnCount)
+
+    local function makeColumn(name, order)
+        local container = Instance.new("Frame")
+        container.Name = name
+        container.BackgroundTransparency = 1
+        container.BorderSizePixel = 0
+        container.LayoutOrder = order
+        container.Size = UDim2.new(1 / columnCount, sizeOffset, 1, 0)
+        container.ZIndex = tabContent.ZIndex + 1
+        container.Parent = tabContent
+
+        local content = Instance.new("Frame")
+        content.Name = "Content"
+        content.BackgroundTransparency = 1
+        content.BorderSizePixel = 0
+        content.Size = UDim2.fromScale(1, 1)
+        content.ZIndex = container.ZIndex
+        content.Parent = container
+
+        local contentLayout = Instance.new("UIListLayout")
+        contentLayout.FillDirection = Enum.FillDirection.Vertical
+        contentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+        contentLayout.Padding = UDim.new(0, 8)
+        contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        contentLayout.Parent = content
+
+        createColumnFade(container, container.ZIndex + 1)
+
+        return {
+            container = container,
+            content = content,
+        }
+    end
+
+    local names = { "leftColumn", "middleColumn", "rightColumn" }
+    local refs = {
+        tabContent = tabContent,
+    }
+
+    for index = 1, columnCount do
+        local column = makeColumn(names[index], index)
+        refs[names[index] .. "Frame"] = column.container
+        refs[names[index]] = column.content
+    end
+
+    return refs
+end
+
 local function applyIcon(iconLabel, iconName)
     local asset = Lucide.GetAsset(iconName) or Lucide.GetAsset(DEFAULT_ICON)
     if not asset then
@@ -172,18 +271,32 @@ end
 
 function Tab.new(window, config, order)
     local refs = createButton(window, order)
+    local title = normalizePropertyValue("Title", config.Title or config.Id or config.Name)
+    local layoutColumns = normalizePropertyValue(
+        "LayoutColumns",
+        config.LayoutColumns or ((string.lower(title) == "settings") and 2 or nil)
+    )
+
+    for key, value in pairs(createPageLayout(refs.page, layoutColumns)) do
+        refs[key] = value
+    end
 
     local self = setmetatable({
         Window = window,
         Instance = refs.button,
         Page = refs.page,
+        leftColumn = refs.leftColumn,
+        middleColumn = refs.middleColumn,
+        rightColumn = refs.rightColumn,
         _destroyed = false,
+        _groupboxes = {},
         _refs = refs,
         _state = {
             Active = normalizePropertyValue("Active", config.Active),
             Icon = normalizePropertyValue("Icon", config.Icon),
+            LayoutColumns = layoutColumns,
             Order = normalizePropertyValue("Order", config.Order or order),
-            Title = normalizePropertyValue("Title", config.Title or config.Id or config.Name),
+            Title = title,
             Visible = normalizePropertyValue("Visible", config.Visible),
         },
     }, TabMeta)
@@ -247,12 +360,29 @@ function Tab:Hide()
     return self:Set("Visible", false)
 end
 
+function Tab:AddGroupbox(column, config)
+    local targetColumn = column
+
+    if type(column) == "string" then
+        targetColumn = self[column]
+    end
+
+    if targetColumn == nil then
+        targetColumn = self.leftColumn or self.middleColumn or self.rightColumn
+    end
+
+    assert(targetColumn ~= nil, "Tab has no valid columns for groupbox placement")
+
+    return self.Window:_addGroupbox(self, targetColumn, config)
+end
+
 function Tab:Destroy()
     if self._destroyed then
         return
     end
 
     self._destroyed = true
+    self.Window:_removeGroupboxesForTab(self)
     self.Window:_removeTab(self)
     self._refs.page:Destroy()
     self._refs.button:Destroy()

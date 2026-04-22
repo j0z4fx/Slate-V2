@@ -296,6 +296,8 @@ local TabMeta = {}
 local ACTIVE_FILL_TRANSPARENCY = 0.84
 local ACTIVE_ICON_TRANSPARENCY = 0.1
 local ACTIVE_LINE_WIDTH = 3
+local COLUMN_GAP = 8
+local FADE_HEIGHT = 20
 local DEFAULT_ICON = "circle-question-mark"
 local TAB_HEIGHT = 48
 local TAB_ICON_SIZE = 20
@@ -311,6 +313,7 @@ local LIVE_PROPERTIES = {
 local DEFAULTS = {
     Active = false,
     Icon = DEFAULT_ICON,
+    LayoutColumns = 3,
     Order = 0,
     Title = "Tab",
     Visible = true,
@@ -341,6 +344,12 @@ local function normalizePropertyValue(property, value)
 
     if property == "Order" then
         return tonumber(getValue(value, DEFAULTS.Order)) or DEFAULTS.Order
+    end
+
+    if property == "LayoutColumns" then
+        local columns = tonumber(getValue(value, DEFAULTS.LayoutColumns)) or DEFAULTS.LayoutColumns
+
+        return math.clamp(columns, 1, 3)
     end
 
     if property == "Title" then
@@ -418,6 +427,96 @@ local function createButton(window, order)
     }
 end
 
+local function createColumnFade(parent, zIndex)
+    local fade = Instance.new("Frame")
+    fade.Name = "BottomFade"
+    fade.AnchorPoint = Vector2.new(0, 1)
+    fade.BackgroundColor3 = Theme.background
+    fade.BorderSizePixel = 0
+    fade.Position = UDim2.new(0, 0, 1, 0)
+    fade.Size = UDim2.new(1, 0, 0, FADE_HEIGHT)
+    fade.ZIndex = zIndex + 1
+    fade.Parent = parent
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(1, 0),
+    })
+    gradient.Rotation = 90
+    gradient.Parent = fade
+end
+
+local function createPageLayout(page, columnCount)
+    local tabContent = Instance.new("Frame")
+    tabContent.Name = "tabContent"
+    tabContent.BackgroundTransparency = 1
+    tabContent.BorderSizePixel = 0
+    tabContent.Size = UDim2.fromScale(1, 1)
+    tabContent.ZIndex = page.ZIndex
+    tabContent.Parent = page
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, COLUMN_GAP)
+    padding.PaddingRight = UDim.new(0, COLUMN_GAP)
+    padding.PaddingTop = UDim.new(0, COLUMN_GAP)
+    padding.Parent = tabContent
+
+    local layout = Instance.new("UIListLayout")
+    layout.FillDirection = Enum.FillDirection.Horizontal
+    layout.Padding = UDim.new(0, COLUMN_GAP)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = tabContent
+
+    local sizeOffset = -math.floor(((columnCount - 1) * COLUMN_GAP) / columnCount)
+
+    local function makeColumn(name, order)
+        local container = Instance.new("Frame")
+        container.Name = name
+        container.BackgroundTransparency = 1
+        container.BorderSizePixel = 0
+        container.LayoutOrder = order
+        container.Size = UDim2.new(1 / columnCount, sizeOffset, 1, 0)
+        container.ZIndex = tabContent.ZIndex + 1
+        container.Parent = tabContent
+
+        local content = Instance.new("Frame")
+        content.Name = "Content"
+        content.BackgroundTransparency = 1
+        content.BorderSizePixel = 0
+        content.Size = UDim2.fromScale(1, 1)
+        content.ZIndex = container.ZIndex
+        content.Parent = container
+
+        local contentLayout = Instance.new("UIListLayout")
+        contentLayout.FillDirection = Enum.FillDirection.Vertical
+        contentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+        contentLayout.Padding = UDim.new(0, 8)
+        contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        contentLayout.Parent = content
+
+        createColumnFade(container, container.ZIndex + 1)
+
+        return {
+            container = container,
+            content = content,
+        }
+    end
+
+    local names = { "leftColumn", "middleColumn", "rightColumn" }
+    local refs = {
+        tabContent = tabContent,
+    }
+
+    for index = 1, columnCount do
+        local column = makeColumn(names[index], index)
+        refs[names[index] .. "Frame"] = column.container
+        refs[names[index]] = column.content
+    end
+
+    return refs
+end
+
 local function applyIcon(iconLabel, iconName)
     local asset = Lucide.GetAsset(iconName) or Lucide.GetAsset(DEFAULT_ICON)
     if not asset then
@@ -461,18 +560,32 @@ end
 
 function Tab.new(window, config, order)
     local refs = createButton(window, order)
+    local title = normalizePropertyValue("Title", config.Title or config.Id or config.Name)
+    local layoutColumns = normalizePropertyValue(
+        "LayoutColumns",
+        config.LayoutColumns or ((string.lower(title) == "settings") and 2 or nil)
+    )
+
+    for key, value in pairs(createPageLayout(refs.page, layoutColumns)) do
+        refs[key] = value
+    end
 
     local self = setmetatable({
         Window = window,
         Instance = refs.button,
         Page = refs.page,
+        leftColumn = refs.leftColumn,
+        middleColumn = refs.middleColumn,
+        rightColumn = refs.rightColumn,
         _destroyed = false,
+        _groupboxes = {},
         _refs = refs,
         _state = {
             Active = normalizePropertyValue("Active", config.Active),
             Icon = normalizePropertyValue("Icon", config.Icon),
+            LayoutColumns = layoutColumns,
             Order = normalizePropertyValue("Order", config.Order or order),
-            Title = normalizePropertyValue("Title", config.Title or config.Id or config.Name),
+            Title = title,
             Visible = normalizePropertyValue("Visible", config.Visible),
         },
     }, TabMeta)
@@ -536,12 +649,29 @@ function Tab:Hide()
     return self:Set("Visible", false)
 end
 
+function Tab:AddGroupbox(column, config)
+    local targetColumn = column
+
+    if type(column) == "string" then
+        targetColumn = self[column]
+    end
+
+    if targetColumn == nil then
+        targetColumn = self.leftColumn or self.middleColumn or self.rightColumn
+    end
+
+    assert(targetColumn ~= nil, "Tab has no valid columns for groupbox placement")
+
+    return self.Window:_addGroupbox(self, targetColumn, config)
+end
+
 function Tab:Destroy()
     if self._destroyed then
         return
     end
 
     self._destroyed = true
+    self.Window:_removeGroupboxesForTab(self)
     self.Window:_removeTab(self)
     self._refs.page:Destroy()
     self._refs.button:Destroy()
@@ -577,7 +707,6 @@ end
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
-
 
 local Window = {}
 local WindowMeta = {}
@@ -817,95 +946,6 @@ local function createTitleBar(frame: Frame)
     }
 end
 
-local function createColumnFade(parent, zIndex)
-    local fade = Instance.new("Frame")
-    fade.Name = "BottomFade"
-    fade.AnchorPoint = Vector2.new(0, 1)
-    fade.BackgroundColor3 = Theme.background
-    fade.BorderSizePixel = 0
-    fade.Position = UDim2.new(0, 0, 1, 0)
-    fade.Size = UDim2.new(1, 0, 0, FADE_HEIGHT)
-    fade.ZIndex = zIndex + 1
-    fade.Parent = parent
-
-    local gradient = Instance.new("UIGradient")
-    gradient.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 1),
-        NumberSequenceKeypoint.new(1, 0),
-    })
-    gradient.Rotation = 90
-    gradient.Parent = fade
-end
-
-local function createTabContent(content)
-    local tabContent = Instance.new("Frame")
-    tabContent.Name = "tabContent"
-    tabContent.BackgroundTransparency = 1
-    tabContent.BorderSizePixel = 0
-    tabContent.Size = UDim2.fromScale(1, 1)
-    tabContent.ZIndex = content.ZIndex
-    tabContent.Parent = content
-
-    local padding = Instance.new("UIPadding")
-    padding.PaddingLeft = UDim.new(0, COLUMN_GAP)
-    padding.PaddingRight = UDim.new(0, COLUMN_GAP)
-    padding.PaddingTop = UDim.new(0, COLUMN_GAP)
-    padding.Parent = tabContent
-
-    local layout = Instance.new("UIListLayout")
-    layout.FillDirection = Enum.FillDirection.Horizontal
-    layout.Padding = UDim.new(0, COLUMN_GAP)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Parent = tabContent
-
-    local function makeColumn(name, order)
-        local container = Instance.new("Frame")
-        container.Name = name
-        container.BackgroundTransparency = 1
-        container.BorderSizePixel = 0
-        container.LayoutOrder = order
-        container.Size = UDim2.new(1 / 3, COLUMN_OFFSET, 1, 0)
-        container.ZIndex = tabContent.ZIndex + 1
-        container.Parent = tabContent
-
-        local col = Instance.new("Frame")
-        col.Name = "Content"
-        col.BackgroundTransparency = 1
-        col.BorderSizePixel = 0
-        col.Size = UDim2.fromScale(1, 1)
-        col.ZIndex = container.ZIndex
-        col.Parent = container
-
-        local colLayout = Instance.new("UIListLayout")
-        colLayout.FillDirection = Enum.FillDirection.Vertical
-        colLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-        colLayout.Padding = UDim.new(0, 8)
-        colLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        colLayout.Parent = col
-
-        createColumnFade(container, container.ZIndex + 1)
-
-        return {
-            container = container,
-            content = col,
-        }
-    end
-
-    local left = makeColumn("leftColumn", 1)
-    local middle = makeColumn("middleColumn", 2)
-    local right = makeColumn("rightColumn", 3)
-
-    return {
-        tabContent = tabContent,
-        leftColumnFrame = left.container,
-        middleColumnFrame = middle.container,
-        rightColumnFrame = right.container,
-        leftColumn = left.content,
-        middleColumn = middle.content,
-        rightColumn = right.content,
-    }
-end
-
 local function createSidebar(frame: Frame)
     local sidebar = Instance.new("Frame")
     sidebar.Name = "Sidebar"
@@ -1098,24 +1138,38 @@ local function commitColumnLayout(self, column)
     end
 end
 
-local function getColumnDefinitions(self)
-    return {
+local function getColumnDefinitions(tab)
+    local refs = tab and tab._refs
+    if not refs then
+        return {}
+    end
+
+    local definitions = {}
+    local columns = {
         {
-            frame = self._refs.leftColumnFrame,
-            content = self.leftColumn,
+            frame = refs.leftColumnFrame,
+            content = tab.leftColumn,
             name = "left",
         },
         {
-            frame = self._refs.middleColumnFrame,
-            content = self.middleColumn,
+            frame = refs.middleColumnFrame,
+            content = tab.middleColumn,
             name = "middle",
         },
         {
-            frame = self._refs.rightColumnFrame,
-            content = self.rightColumn,
+            frame = refs.rightColumnFrame,
+            content = tab.rightColumn,
             name = "right",
         },
     }
+
+    for _, definition in ipairs(columns) do
+        if definition.frame and definition.content then
+            table.insert(definitions, definition)
+        end
+    end
+
+    return definitions
 end
 
 local function setGroupboxZOffset(root, delta)
@@ -1154,7 +1208,7 @@ updateDragPlaceholder = function(self)
     local targetColumn = nil
     local bestDistance = math.huge
 
-    for _, definition in ipairs(getColumnDefinitions(self)) do
+    for _, definition in ipairs(getColumnDefinitions(dragState.tab)) do
         local frame = definition.frame
         local absPos = frame.AbsolutePosition
         local absSize = frame.AbsoluteSize
@@ -1221,6 +1275,7 @@ local function clearGroupboxDrag(self)
     dragState.dragging = false
     dragState.groupbox = nil
     dragState.sourceColumn = nil
+    dragState.tab = nil
     dragState.targetColumn = nil
 end
 
@@ -1239,6 +1294,7 @@ local function beginGroupboxDrag(self, groupbox, inputPosition)
     dragState.dragging = true
     dragState.groupbox = groupbox
     dragState.sourceColumn = groupbox.Column
+    dragState.tab = groupbox.Tab
     dragState.targetColumn = groupbox.Column
     dragState.pointer = inputPosition
     dragState.offset = Vector2.new(inputPosition.X - absPos.X, inputPosition.Y - absPos.Y)
@@ -1543,17 +1599,10 @@ function Window.new(parent: Instance, config)
     for key, value in pairs(createCursor(frame)) do
         refs[key] = value
     end
-    for key, value in pairs(createTabContent(refs.content)) do
-        refs[key] = value
-    end
-
     local self = setmetatable({
         Instance = frame,
         Parent = parent,
         Tabs = {},
-        leftColumn = refs.leftColumn,
-        middleColumn = refs.middleColumn,
-        rightColumn = refs.rightColumn,
         _connections = {},
         _cursorVisible = false,
         _dragging = false,
@@ -1571,6 +1620,7 @@ function Window.new(parent: Instance, config)
             snapConnection = nil,
             snapTween = nil,
             sourceColumn = nil,
+            tab = nil,
             targetColumn = nil,
         },
         _refs = refs,
@@ -1580,6 +1630,12 @@ function Window.new(parent: Instance, config)
 
     applyMetadata(self)
     attachInteractions(self)
+    self:AddTab({
+        Title = "Settings",
+        Icon = "settings",
+        LayoutColumns = 2,
+        Order = 9999,
+    })
 
     return self
 end
@@ -1644,6 +1700,9 @@ end
 
 function Window:AddTab(config)
     local tabConfig = config or {}
+    if string.lower(tostring(tabConfig.Title or tabConfig.Id or tabConfig.Name or "")) == "settings" then
+        tabConfig.LayoutColumns = 2
+    end
     local tab = Tab.new(self, tabConfig, #self._tabs + 1)
 
     table.insert(self._tabs, tab)
@@ -1654,9 +1713,15 @@ function Window:AddTab(config)
 end
 
 function Window:AddGroupbox(column, config)
+    error("Window:AddGroupbox() has moved. Use Tab:AddGroupbox(column, config) instead.")
+end
+
+function Window:_addGroupbox(tab, column, config)
     local groupbox = Groupbox.new(column, config)
+    groupbox.Tab = tab
 
     table.insert(self._groupboxes, groupbox)
+    table.insert(tab._groupboxes, groupbox)
     bindGroupboxDragging(self, groupbox)
     commitColumnLayout(self, column)
 
@@ -1720,6 +1785,28 @@ function Window:_removeTab(tab)
     self:_reconcileTabs(nil)
 end
 
+function Window:_removeGroupboxesForTab(tab)
+    local remaining = {}
+
+    for _, groupbox in ipairs(self._groupboxes) do
+        if groupbox.Tab == tab then
+            if self._groupboxDrag.groupbox == groupbox then
+                endGroupboxDrag(self)
+            end
+
+            safeDisconnect(self._groupboxConnections[groupbox])
+            self._groupboxConnections[groupbox] = nil
+            groupbox._destroyed = true
+            groupbox.Instance:Destroy()
+        else
+            table.insert(remaining, groupbox)
+        end
+    end
+
+    self._groupboxes = remaining
+    tab._groupboxes = {}
+end
+
 function Window:Destroy()
     if self._destroyed then
         return
@@ -1778,9 +1865,12 @@ function WindowMeta.__newindex(self, key, value)
     error(string.format("Unsupported window property %q", tostring(key)))
 end
 
+
 local Slate = {}
+local mountedWindows = {}
 
 Slate.Theme = Theme
+Slate.Groupbox = Groupbox
 
 local function normalizeWindowConfig(selfOrConfig, config)
     if selfOrConfig == Slate then
@@ -1797,12 +1887,24 @@ end
 function Slate:CreateWindow(config)
     local windowConfig = normalizeWindowConfig(self, config)
     local target = windowConfig.Parent or Root.getOrCreate()
+    local window = Window.new(target, windowConfig)
 
-    return Window.new(target, windowConfig)
+    table.insert(mountedWindows, window)
+
+    return window
 end
 
 function Slate:Destroy()
+    for index = #mountedWindows, 1, -1 do
+        local window = mountedWindows[index]
+        if window and not window._destroyed then
+            window:Destroy()
+        end
+        mountedWindows[index] = nil
+    end
+
     Root.destroy()
 end
 
 return Slate
+
