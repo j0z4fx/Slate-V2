@@ -39,6 +39,7 @@ local function createGroupbox(parent)
     -- Title bar (UICorner matches frame so top corners render correctly)
     local titleBar = Instance.new("Frame")
     titleBar.Name = "TitleBar"
+    titleBar.Active = true
     titleBar.BackgroundColor3 = Theme.surface
     titleBar.BorderSizePixel = 0
     titleBar.LayoutOrder = 1
@@ -110,6 +111,7 @@ local function createGroupbox(parent)
 
     return {
         frame = frame,
+        titleBar = titleBar,
         titleLabel = titleLabel,
         content = content,
     }
@@ -118,14 +120,27 @@ end
 function Groupbox.new(parent, config)
     local cfg = config or {}
     local refs = createGroupbox(parent)
+    refs.frame.LayoutOrder = cfg.LayoutOrder or 1
 
     local self = setmetatable({
         Instance = refs.frame,
+        TitleBar = refs.titleBar,
         Content = refs.content,
+        Column = parent,
+        LayoutOrder = refs.frame.LayoutOrder,
         _refs = refs,
+        _dragging = false,
     }, GroupboxMeta)
 
     refs.titleLabel.Text = string.upper(cfg.Title or "Groupbox")
+
+    return self
+end
+
+function Groupbox:SetPlacement(column, layoutOrder)
+    self.Column = column
+    self.LayoutOrder = layoutOrder
+    self.Instance.LayoutOrder = layoutOrder
 
     return self
 end
