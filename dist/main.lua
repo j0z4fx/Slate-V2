@@ -3560,6 +3560,9 @@ local function applyMetadata(self)
     local refs = self._refs
     local boot = self._boot
     local renderSize = boot.active and boot.compactSize or state.Size
+    local shellReady = (not boot.active) and (not boot.revealStarted)
+    local sidebarReady = (state.ShowSidebar and boot.sidebarVisible) or (shellReady and state.ShowSidebar)
+    local contentReady = boot.contentVisible or shellReady
 
     self.Instance.Size = renderSize
     self.Instance.Visible = state.Visible
@@ -3608,15 +3611,15 @@ local function applyMetadata(self)
     end
     refs.sidebar.BackgroundColor3 = Theme["nav-bg"]
     refs.sidebar.Size = UDim2.new(0, state.SidebarWidth, 1, -TITLE_BAR_HEIGHT)
-    refs.sidebar.Visible = state.ShowSidebar and boot.sidebarVisible
+    refs.sidebar.Visible = sidebarReady
     refs.sidebarStroke.Color = Theme["nav-stroke"]
     refs.sidebarStroke.Thickness = SIDEBAR_STROKE
     refs.content.Position = UDim2.fromOffset(state.ShowSidebar and state.SidebarWidth or 0, TITLE_BAR_HEIGHT)
     refs.content.Size = UDim2.new(1, -(state.ShowSidebar and state.SidebarWidth or 0), 1, -TITLE_BAR_HEIGHT)
-    refs.content.Visible = boot.contentVisible
+    refs.content.Visible = contentReady
     refs.cursorHorizontal.BackgroundColor3 = Theme.accent
     refs.cursorVertical.BackgroundColor3 = Theme.accent
-    refs.titleBar.Visible = boot.titleBarVisible
+    refs.titleBar.Visible = boot.titleBarVisible or shellReady
 
     for _, tab in ipairs(self._tabs) do
         Tab._applyMetadata(tab)
