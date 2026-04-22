@@ -435,6 +435,10 @@ local SIDEBAR_STROKE = 1
 local CURSOR_SIZE = 16
 local CURSOR_LINE_THICKNESS = 2
 local DEFAULT_SIDEBAR_WIDTH = math.floor((48 * 1.15) + 0.5)
+local COLUMN_GAP = 8
+local COLUMN_OFFSET = -math.floor(2 * COLUMN_GAP / 3)
+local CONTENT_PADDING = 6
+local FADE_HEIGHT = 10
 
 local DEFAULTS = {
     Title = "Slate",
@@ -647,6 +651,70 @@ local function createTitleBar(frame: Frame)
     }
 end
 
+local function createColumnFade(parent, zIndex)
+    local fade = Instance.new("Frame")
+    fade.Name = "BottomFade"
+    fade.AnchorPoint = Vector2.new(0, 1)
+    fade.BackgroundColor3 = Theme.background
+    fade.BorderSizePixel = 0
+    fade.Position = UDim2.new(0, 0, 1, 0)
+    fade.Size = UDim2.new(1, 0, 0, FADE_HEIGHT)
+    fade.ZIndex = zIndex + 1
+    fade.Parent = parent
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(1, 0),
+    })
+    gradient.Rotation = 90
+    gradient.Parent = fade
+end
+
+local function createTabContent(content)
+    local tabContent = Instance.new("Frame")
+    tabContent.Name = "tabContent"
+    tabContent.BackgroundTransparency = 1
+    tabContent.BorderSizePixel = 0
+    tabContent.Size = UDim2.fromScale(1, 1)
+    tabContent.ZIndex = content.ZIndex
+    tabContent.Parent = content
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, COLUMN_GAP)
+    padding.PaddingRight = UDim.new(0, COLUMN_GAP)
+    padding.PaddingTop = UDim.new(0, COLUMN_GAP)
+    padding.Parent = tabContent
+
+    local layout = Instance.new("UIListLayout")
+    layout.FillDirection = Enum.FillDirection.Horizontal
+    layout.Padding = UDim.new(0, COLUMN_GAP)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = tabContent
+
+    local function makeColumn(name, order)
+        local col = Instance.new("Frame")
+        col.Name = name
+        col.BackgroundColor3 = Theme.accent
+        col.BorderSizePixel = 0
+        col.LayoutOrder = order
+        col.Size = UDim2.new(1 / 3, COLUMN_OFFSET, 1, 0)
+        col.ZIndex = tabContent.ZIndex + 1
+        col.Parent = tabContent
+
+        createColumnFade(col, col.ZIndex)
+
+        return col
+    end
+
+    return {
+        tabContent = tabContent,
+        leftColumn = makeColumn("leftColumn", 1),
+        middleColumn = makeColumn("middleColumn", 2),
+        rightColumn = makeColumn("rightColumn", 3),
+    }
+end
+
 local function createSidebar(frame: Frame)
     local sidebar = Instance.new("Frame")
     sidebar.Name = "Sidebar"
@@ -688,6 +756,13 @@ local function createSidebar(frame: Frame)
     content.ZIndex = frame.ZIndex
     content:SetAttribute("SlateComponent", "Content")
     content.Parent = frame
+
+    local contentPadding = Instance.new("UIPadding")
+    contentPadding.PaddingLeft = UDim.new(0, CONTENT_PADDING)
+    contentPadding.PaddingRight = UDim.new(0, CONTENT_PADDING)
+    contentPadding.PaddingTop = UDim.new(0, CONTENT_PADDING)
+    contentPadding.PaddingBottom = UDim.new(0, CONTENT_PADDING)
+    contentPadding.Parent = content
 
     return {
         sidebar = sidebar,
@@ -959,6 +1034,9 @@ function Window.new(parent: Instance, config)
         refs[key] = value
     end
     for key, value in pairs(createCursor(frame)) do
+        refs[key] = value
+    end
+    for key, value in pairs(createTabContent(refs.content)) do
         refs[key] = value
     end
 
