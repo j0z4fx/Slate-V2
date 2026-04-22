@@ -998,12 +998,19 @@ end
 local function forceBootVisible(self)
     local boot = self._boot
     local state = self._state
+    local refs = self._refs
 
     boot.active = false
     boot.loaderVisible = false
     boot.titleBarVisible = true
     boot.sidebarVisible = state.ShowSidebar
     boot.contentVisible = true
+
+    refs.titleBar.Visible = true
+    refs.titleBar.Position = UDim2.fromOffset(0, 0)
+    refs.sidebar.Visible = state.ShowSidebar
+    refs.sidebar.Position = UDim2.fromOffset(0, TITLE_BAR_HEIGHT)
+    refs.content.Visible = true
 
     for _, tab in ipairs(self._tabs) do
         tab._bootVisible = true
@@ -1089,7 +1096,6 @@ local function playBootReveal(self)
     boot.titleBarVisible = true
     refs.titleBar.Visible = true
     refs.titleBar.Position = UDim2.fromOffset(0, -TITLE_BAR_HEIGHT)
-    applyMetadata(self)
     local titleTween = TweenService:Create(refs.titleBar, WINDOW_BOOT_TITLE_TWEEN_INFO, {
         Position = UDim2.fromOffset(0, 0),
     })
@@ -1101,7 +1107,6 @@ local function playBootReveal(self)
         boot.sidebarVisible = true
         refs.sidebar.Visible = true
         refs.sidebar.Position = UDim2.fromOffset(-state.SidebarWidth, TITLE_BAR_HEIGHT)
-        applyMetadata(self)
         local sidebarTween = TweenService:Create(refs.sidebar, WINDOW_BOOT_SIDEBAR_TWEEN_INFO, {
             Position = UDim2.fromOffset(0, TITLE_BAR_HEIGHT),
         })
