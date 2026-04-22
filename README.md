@@ -11,6 +11,7 @@ Current API:
 ```lua
 local window = Slate:CreateWindow({
     Title = "Slate",
+    Version = "1.0.0",
     Width = 960,
     Height = 540,
     Resizable = true,
@@ -20,6 +21,7 @@ local window = Slate:CreateWindow({
 })
 
 window.Title = "Example"
+window.Version = "1.0.1"
 window.Width = 900
 window:Set({
     Height = 500,

@@ -71,6 +71,7 @@ function Harness.snapshotState()
         screenGuiName = session.screenGui.Name,
         windowName = session.window.Instance.Name,
         title = session.window.Title,
+        version = session.window.Version,
         visible = session.window.Visible,
         autoShow = session.window.AutoShow,
         width = session.window.Width,

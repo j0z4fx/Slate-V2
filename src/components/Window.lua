@@ -2,9 +2,12 @@ local Theme = require(script.Parent.Parent.theme.Theme)
 
 local Window = {}
 local WindowMeta = {}
+local CHIP_TEXT = "SLATE"
+local TITLE_BAR_HEIGHT = 36
 
 local DEFAULTS = {
     Title = "Slate",
+    Version = nil,
     Width = 960,
     Height = 540,
     Resizable = true,
@@ -21,6 +24,7 @@ local LIVE_PROPERTIES = {
     SidebarWidth = true,
     Size = true,
     Title = true,
+    Version = true,
     Visible = true,
     Width = true,
 }
@@ -35,7 +39,15 @@ end
 
 local function normalizePropertyValue(property, value)
     if property == "Title" then
-        return getValue(value, DEFAULTS.Title)
+        return tostring(getValue(value, DEFAULTS.Title))
+    end
+
+    if property == "Version" then
+        if value == nil or value == "" then
+            return nil
+        end
+
+        return tostring(value)
     end
 
     if property == "Resizable" then
@@ -68,15 +80,121 @@ local function resolveSize(config)
     return UDim2.fromOffset(width, height)
 end
 
+local function createTextLabel(name, font, textSize, textColor, zIndex)
+    local label = Instance.new("TextLabel")
+    label.Name = name
+    label.BackgroundTransparency = 1
+    label.BorderSizePixel = 0
+    label.Font = font
+    label.TextColor3 = textColor
+    label.TextSize = textSize
+    label.TextWrapped = false
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
+    label.ZIndex = zIndex
+
+    return label
+end
+
+local function createTitleBar(frame: Frame)
+    local titleBar = Instance.new("Frame")
+    titleBar.Name = "TitleBar"
+    titleBar.BackgroundColor3 = Theme["nav-bg"]
+    titleBar.BorderSizePixel = 0
+    titleBar.Position = UDim2.fromOffset(0, 0)
+    titleBar.Size = UDim2.new(1, 0, 0, TITLE_BAR_HEIGHT)
+    titleBar.ZIndex = frame.ZIndex + 1
+    titleBar:SetAttribute("SlateComponent", "TitleBar")
+    titleBar.Parent = frame
+
+    local titleBarStroke = Instance.new("UIStroke")
+    titleBarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    titleBarStroke.Color = Theme["nav-stroke"]
+    titleBarStroke.Thickness = 1
+    titleBarStroke.Parent = titleBar
+
+    local titleCluster = Instance.new("Frame")
+    titleCluster.Name = "TitleCluster"
+    titleCluster.AnchorPoint = Vector2.new(0, 0.5)
+    titleCluster.AutomaticSize = Enum.AutomaticSize.X
+    titleCluster.BackgroundTransparency = 1
+    titleCluster.Position = UDim2.new(0, 14, 0.5, 0)
+    titleCluster.Size = UDim2.new(0, 0, 1, 0)
+    titleCluster.ZIndex = titleBar.ZIndex + 1
+    titleCluster.Parent = titleBar
+
+    local titleLayout = Instance.new("UIListLayout")
+    titleLayout.FillDirection = Enum.FillDirection.Horizontal
+    titleLayout.Padding = UDim.new(0, 8)
+    titleLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    titleLayout.Parent = titleCluster
+
+    local titleLabel = createTextLabel("TitleLabel", Enum.Font.GothamMedium, 14, Theme["text-primary"], titleCluster.ZIndex)
+    titleLabel.AutomaticSize = Enum.AutomaticSize.X
+    titleLabel.Size = UDim2.new(0, 0, 1, 0)
+    titleLabel.Parent = titleCluster
+
+    local versionLabel = createTextLabel("VersionLabel", Enum.Font.Gotham, 13, Theme["text-secondary"], titleCluster.ZIndex)
+    versionLabel.AutomaticSize = Enum.AutomaticSize.X
+    versionLabel.Size = UDim2.new(0, 0, 1, 0)
+    versionLabel.Visible = false
+    versionLabel.Parent = titleCluster
+
+    local accentChip = Instance.new("Frame")
+    accentChip.Name = "AccentChip"
+    accentChip.AnchorPoint = Vector2.new(0.5, 0.5)
+    accentChip.BackgroundColor3 = Theme.accent
+    accentChip.BackgroundTransparency = 0.84
+    accentChip.BorderSizePixel = 0
+    accentChip.Position = UDim2.fromScale(0.5, 0.5)
+    accentChip.Size = UDim2.fromOffset(74, 20)
+    accentChip.ZIndex = titleBar.ZIndex + 1
+    accentChip:SetAttribute("SlateComponent", "AccentChip")
+    accentChip.Parent = titleBar
+
+    local accentCorner = Instance.new("UICorner")
+    accentCorner.CornerRadius = UDim.new(1, 0)
+    accentCorner.Parent = accentChip
+
+    local accentLabel = createTextLabel("ChipLabel", Enum.Font.GothamBold, 12, Theme.accent, accentChip.ZIndex + 1)
+    accentLabel.Size = UDim2.fromScale(1, 1)
+    accentLabel.Text = CHIP_TEXT
+    accentLabel.TextXAlignment = Enum.TextXAlignment.Center
+    accentLabel.Parent = accentChip
+
+    return {
+        titleBar = titleBar,
+        titleBarStroke = titleBarStroke,
+        titleLabel = titleLabel,
+        versionLabel = versionLabel,
+        accentChip = accentChip,
+        accentLabel = accentLabel,
+    }
+end
+
 local function applyMetadata(self)
     local state = self._state
+    local refs = self._refs
 
     self.Instance.Size = state.Size
     self.Instance.Visible = state.Visible
     self.Instance:SetAttribute("Title", state.Title)
+    self.Instance:SetAttribute("Version", state.Version)
     self.Instance:SetAttribute("Resizable", state.Resizable)
     self.Instance:SetAttribute("SidebarWidth", state.SidebarWidth)
     self.Instance:SetAttribute("ShowSidebar", state.ShowSidebar)
+
+    refs.titleBar.BackgroundColor3 = Theme["nav-bg"]
+    refs.titleBarStroke.Color = Theme["nav-stroke"]
+    refs.titleLabel.Text = state.Title
+    refs.titleLabel.TextColor3 = Theme["text-primary"]
+    refs.versionLabel.Text = state.Version or ""
+    refs.versionLabel.TextColor3 = Theme["text-secondary"]
+    refs.versionLabel.Visible = state.Version ~= nil
+    refs.accentChip.BackgroundColor3 = Theme.accent
+    refs.accentChip.BackgroundTransparency = 0.84
+    refs.accentLabel.Text = CHIP_TEXT
+    refs.accentLabel.TextColor3 = Theme.accent
 end
 
 local function createState(config)
@@ -84,7 +202,8 @@ local function createState(config)
     local visible = getValue(config.AutoShow, DEFAULTS.AutoShow)
 
     return {
-        Title = getValue(config.Title, DEFAULTS.Title),
+        Title = normalizePropertyValue("Title", config.Title),
+        Version = normalizePropertyValue("Version", config.Version),
         Width = getValue(config.Width, size.X.Offset),
         Height = getValue(config.Height, size.Y.Offset),
         Size = size,
@@ -177,10 +296,13 @@ function Window.new(parent: Instance, config)
     frame:SetAttribute("SlateComponent", "Window")
     frame.Parent = parent
 
+    local refs = createTitleBar(frame)
+
     local self = setmetatable({
         Instance = frame,
         Parent = parent,
         _destroyed = false,
+        _refs = refs,
         _state = createState(config),
     }, WindowMeta)
 
@@ -225,6 +347,10 @@ end
 
 function Window:SetTitle(title: string)
     return self:Set("Title", title)
+end
+
+function Window:SetVersion(version: string?)
+    return self:Set("Version", version)
 end
 
 function Window:SetResizable(resizable: boolean)
