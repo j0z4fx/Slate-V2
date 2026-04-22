@@ -2246,9 +2246,13 @@ local function applyMetadata(self)
     local refs = self._refs
     local state = self._state
     local isActive = state.Active and state.Visible
-    local boot = self.Window._boot
-    local buttonsReady = (not boot.active and not boot.revealStarted) or self._bootVisible
-    local pageReady = (not boot.active and not boot.revealStarted) or boot.contentVisible
+    local window = self.Window
+    local boot = window and window._boot
+    local bootActive = boot and boot.active or false
+    local bootRevealStarted = boot and boot.revealStarted or false
+    local contentVisible = boot and boot.contentVisible or true
+    local buttonsReady = (not bootActive and not bootRevealStarted) or self._bootVisible
+    local pageReady = (not bootActive and not bootRevealStarted) or contentVisible
 
     refs.button.LayoutOrder = state.Order
     refs.button.Visible = state.Visible and buttonsReady
