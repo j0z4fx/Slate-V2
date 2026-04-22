@@ -2455,9 +2455,11 @@ local GROUPBOX_DRAG_PLACEHOLDER_INSET = 7
 local GROUPBOX_DRAG_ZINDEX_OFFSET = 100
 local GROUPBOX_DRAG_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local LOADER_BASE_PROGRESS = 0.2
-local LOADER_COMPACT_SCALE = 0.25
-local LOADER_MIN_WIDTH = 240
+local LOADER_COMPACT_WIDTH_SCALE = 0.33
+local LOADER_COMPACT_HEIGHT_SCALE = 0.25
+local LOADER_MIN_WIDTH = 320
 local LOADER_MIN_HEIGHT = 135
+local LOADER_FINAL_HOLD = 1
 local LOADER_TRACK_HEIGHT = 2
 local LOADER_BAR_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local LOADER_PANEL_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -2579,9 +2581,9 @@ end
 local function getCompactSize(size)
     return UDim2.new(
         size.X.Scale,
-        math.max(LOADER_MIN_WIDTH, math.floor(size.X.Offset * LOADER_COMPACT_SCALE)),
+        math.max(LOADER_MIN_WIDTH, math.floor(size.X.Offset * LOADER_COMPACT_WIDTH_SCALE)),
         size.Y.Scale,
-        math.max(LOADER_MIN_HEIGHT, math.floor(size.Y.Offset * LOADER_COMPACT_SCALE))
+        math.max(LOADER_MIN_HEIGHT, math.floor(size.Y.Offset * LOADER_COMPACT_HEIGHT_SCALE))
     )
 end
 
@@ -3511,6 +3513,9 @@ local function playBootReveal(self)
     local refs = self._refs
     local state = self._state
 
+    task.wait(LOADER_FINAL_HOLD)
+    hideLoaderOverlay(self)
+
     local expandTween = TweenService:Create(self.Instance, WINDOW_BOOT_EXPAND_TWEEN_INFO, {
         Size = state.Size,
     })
@@ -3520,7 +3525,6 @@ local function playBootReveal(self)
 
     boot.active = false
     boot.compactSize = getCompactSize(state.Size)
-    hideLoaderOverlay(self)
 
     boot.titleBarVisible = true
     refs.titleBar.Visible = true
